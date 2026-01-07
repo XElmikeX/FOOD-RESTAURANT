@@ -1,0 +1,9 @@
+#Se puede agregar más para ignorar
+#Sirve para que cargue más rapido el build(cuando lo subes)
+
+target/
+.git/
+.mvn/
+*.log
+*.iml
+*.idea

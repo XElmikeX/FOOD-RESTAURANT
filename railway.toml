@@ -1,0 +1,14 @@
+#Es la configuración especifica para railway,
+#sirve para poder desplegarlo en su plataforma.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "./Dockerfile"
+
+[deploy]
+
+[database]
+
+[restart]
+policy = "on_failure"
+max_retries = 3
