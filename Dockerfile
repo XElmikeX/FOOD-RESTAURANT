@@ -31,7 +31,7 @@ WORKDIR /app
 # "Organizar el área de servicio"
 
 # 9. TRANSPORTAR: "Poner la comida en el plato"
-COPY --from=build /app/target/food.1.jar app.jar
+COPY --from=build /app/target/food-1.jar app.jar
 # "Tomar solo el JAR final del paso 6"
 
 # 10. ETIQUETA: "Indicar cómo se sirve"
