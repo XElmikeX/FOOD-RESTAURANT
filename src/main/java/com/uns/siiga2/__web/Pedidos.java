@@ -1,4 +1,4 @@
-package com.uns.food.MozoACocinero;
+package com.uns.siiga2.__web;
 
 import java.time.LocalDateTime;
 
@@ -16,8 +16,26 @@ public class Pedidos {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String NombreDelPedido;
+    private foods comida;
 
     @CreationTimestamp
     private LocalDateTime Hora;
+
+    public Long getId(){
+        return id;
+    }
+    public void setId(Long id){
+        this.id = id;
+    }
+
+    public foods getComida(){
+        return comida;
+    }
+    public void setNombreDelPedido(foods comida){
+        this.comida = comida;
+    }
+
+    public LocalDateTime getHora(){
+        return Hora;
+    }
 }

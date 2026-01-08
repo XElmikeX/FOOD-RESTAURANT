@@ -1,4 +1,4 @@
-package com.uns.food.MozoACocinero;
+package com.uns.siiga2.__web;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

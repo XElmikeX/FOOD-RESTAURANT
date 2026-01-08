@@ -13,8 +13,8 @@
 	<groupId>com.uns</groupId>
 	<artifactId>siiga2-web</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>siiga2-web</name>
-	<description>Sistema SIIGA 2.0 - Universidad Nacional del Santa</description>
+	<name>food-restaurant</name>
+	<description>negocio funcional</description>
 	
 	<properties>
 		<java.version>17</java.version>
