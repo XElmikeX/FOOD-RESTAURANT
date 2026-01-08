@@ -1,4 +1,4 @@
-package com.uns.siiga2.__web;
+package com.uns.food.MeseroACocinero;
 
 import java.time.LocalDateTime;
 
@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 public class Pedidos {
@@ -16,10 +17,23 @@ public class Pedidos {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private foods comida;
+    @ManyToOne
+    private Foods comida;
+
+    @ManyToOne
+    private Mesas mesa;
 
     @CreationTimestamp
     private LocalDateTime Hora;
+
+
+    public Pedidos() {
+        // Constructor vacío requerido por JPA
+    }
+    public Pedidos(Foods comida) {
+        this.comida = comida;
+        this.Hora = LocalDateTime.now();
+    }
 
     public Long getId(){
         return id;
@@ -28,11 +42,18 @@ public class Pedidos {
         this.id = id;
     }
 
-    public foods getComida(){
+    public Foods getComida(){
         return comida;
     }
-    public void setNombreDelPedido(foods comida){
+    public void setComida(Foods comida){
         this.comida = comida;
+    }
+
+    public Mesas getMesa(){
+        return mesa;
+    }
+    public void setMesa(Mesas mesa){
+        this.mesa = mesa;
     }
 
     public LocalDateTime getHora(){

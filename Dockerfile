@@ -35,9 +35,9 @@ COPY --from=build /app/target/siiga2-web-0.0.1-SNAPSHOT.jar app.jar
 # "Tomar solo el JAR final del paso 6"
 
 # 10. ETIQUETA: "Indicar cómo se sirve"
-EXPOSE 8081
+EXPOSE 8083
 # "Este plato se sirve por el puerto 8080"
 
 # 11. INSTRUCCIONES: "Cómo consumirlo"
-ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8081} -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8083} -jar app.jar"]
 # "Instrucciones finales: ejecutar Java con el puerto correcto"

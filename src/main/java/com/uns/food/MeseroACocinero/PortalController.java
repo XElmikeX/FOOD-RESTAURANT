@@ -1,4 +1,4 @@
-package com.uns.siiga2.__web;
+package com.uns.food.MeseroACocinero;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
