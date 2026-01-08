@@ -69,7 +69,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<mainClass>com.uns.siiga2.__web.Iniciador</mainClass>
+					<mainClass>com.uns.food.MeseroACocinero.Iniciador</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
