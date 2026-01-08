@@ -11,8 +11,10 @@
 		<relativePath/>
 	</parent>
 	<groupId>com.uns</groupId>
-	<artifactId>siiga2-web</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<!--para el dockerfile (sirve para indicar que es lo que se uso para mi proyecto "imagen docker")-->
+	<artifactId>food</artifactId>
+	<version>1</version>
+	<!--||||||||||||||||||||||||||||||||-->
 	<name>food-restaurant</name>
 	<description>negocio funcional</description>
 	
