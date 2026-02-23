@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturero - Sistema de Pedidos</title>
+    <link rel="stylesheet" th:href="@{/Facturero/Facturero.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>
+                <i class="fas fa-file-invoice"></i> 
+                Facturación - Pedidos Listos
+            </h1>
+            <p class="header-subtitle">Pedidos completados por cocina listos para facturar</p>
+        </header>
+        
+        <div class="stats-bar">
+            <div class="stat-item">
+                <i class="fas fa-utensils"></i>
+                <span class="stat-value" th:text="${totalMesas}">0</span>
+                <span class="stat-label">Mesas para facturar</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-clipboard-list"></i>
+                <span class="stat-value" th:text="${totalPedidos}">0</span>
+                <span class="stat-label">Pedidos completados</span>
+            </div>
+
+            <a href="/api/pedidos/ver-excel-web" target="_blank" class="btn-download">
+                <i class="fas fa-cloud"></i> Sheets
+            </a>
+        </div>
+        
+        <div class="facturas-container">
+            <div th:if="${mesasFactura == null or mesasFactura.empty}" class="sin-facturas">
+                <i class="fas fa-check-circle"></i>
+                <h3>No hay pedidos listos para facturar</h3>
+                <p>Los pedidos aparecerán aquí cuando el cocinero los complete</p>
+            </div>
+        
+            <div th:if="${mesasFactura != null and not mesasFactura.empty}" class="mesas-grid">
+                <div th:each="mesa : ${mesasFactura}" class="mesa-factura-card" th:id="'mesa-' + ${mesa.id}">
+                    <div class="mesa-factura-header">
+                        <div class="mesa-info">
+                            <i class="fas fa-chair"></i>
+                            <span class="mesa-numero" th:text="${mesa.numero}"></span>
+                            <span class="mesa-label">Mesa</span>
+                        </div>
+                        <div class="mesa-total">
+                            <span class="total-valor" th:text="${'$' + #numbers.formatDecimal(mesa.total, 0, 'COMMA', 2, 'POINT')}"></span>
+                        </div>
+                    </div>
+                    
+                    <!--  Detalle del pedido  -->
+                    <div class="pedidos-list hidden">
+                        <div th:each="pedido : ${mesa.pedidos}" class="pedido-factura-item" th:id="'pedido-' + ${pedido.id}">
+                            <div class="pedido-factura-header">
+                                <div class="pedido-info">
+                                    <span class="pedido-cantidad" th:text="${'x' +pedido.cantidad}"></span>
+                                    <span class="pedido-nombre" th:text="${pedido.nombreProducto}"></span>
+                                </div>
+                                <span class="pedido-precio" th:text="${'$' + #numbers.formatDecimal(pedido.precioTotal, 0, 'COMMA', 2, 'POINT')}"></span>
+                            </div>
+                            <div th:if="${pedido.nota != null and pedido.nota != ''}" class="pedido-nota">
+                                <i class="fas fa-comment"></i>
+                                <span th:text="${pedido.nota}"></span>
+                            </div>
+                            <div class="pedido-meta">
+                                <span class="pedido-hora">
+                                    <i class="far fa-clock"></i>
+                                    <span th:text="${#temporals.format(pedido.horaCompletado, 'HH:mm')}"></span>
+                                </span>
+                                <span th:text="${'$' + #numbers.formatDecimal(pedido.precioUnitario, 0, 'COMMA', 2, 'POINT') + ' c/u'}"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mesa-factura-footer">
+                        <div class="action-buttons">
+                            <button class="btn-ver-detalle" th:onclick="'verDetalleMesa(' + ${mesa.id} + ')'">
+                                <i class="fas fa-eye"></i> Detalle
+                            </button>
+                            <button class="btn-facturar" th:onclick="'imprimirFactura(' + ${mesa.id} + ')'">
+                                <i class="fas fa-file-invoice-dollar"></i> Imprimir
+                            </button>
+                            <button class="btn-eliminar" th:onclick="'eliminarPedidosMesa(' + ${mesa.id} + ')'">
+                                <i class="fas fa-check-circle"></i> Facturar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--Visualizacion de la ganancia diaria-->
+        <div id="resumen-diario-container" style="display: block;"></div>
+
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script th:src="@{/Facturero/Facturero.js}"></script>
+</body>
+</html>

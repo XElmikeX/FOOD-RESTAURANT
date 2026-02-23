@@ -1,0 +1,619 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #f5f7fa;
+    color: #333;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Header y título */
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    border-radius: 15px;
+    background: linear-gradient(135deg, #4a6fa5, #2c3e50);
+    color: white;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #ff9a00, #ff5500);
+}
+
+.header h1 {
+    font-size: 2.8rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.header h1 i {
+    color: #ff9a00;
+}
+
+
+/* Contenedor de cartas */
+.cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+/* Estilo de las cartas */
+.card {
+    background-color: white;
+    text-decoration: none;
+    border-radius: 15px;
+    padding: 25px 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border: 3px solid transparent;
+}
+
+.card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15);
+    border-color: #4a6fa5;
+    background: linear-gradient(135deg, #4a6fa5, #2c3e50);
+    border-color: #ff9a00;
+    transition: all 0.8s ease;
+}
+
+.card:hover .card-number,
+.card:hover .card-label {
+    color: white;
+    transition: all 0.5s ease;
+}
+
+.card:active {
+    transform: translateY(-5px);
+}
+
+.card-number {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: #2c3e50;
+    margin-bottom: 10px;
+    line-height: 1;
+}
+
+.card-label {
+    font-size: 1.1rem;
+    color: #4a6fa5;
+    font-weight: 600;
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #777;
+    font-size: 0.9rem;
+    padding: 20px;
+}
+
+/* ===== NUEVOS ESTILOS PARA MESAS ACTIVAS ===== */
+.mesas-activas-section {
+    margin-bottom: 40px;
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+    color: #2c3e50;
+    font-size: 1.8em;
+}
+
+.badge-activas {
+    background: #3498db;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.6em;
+    margin-left: 10px;
+}
+
+.mesas-activas-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.mesa-activa-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 20px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.2);
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.5s ease forwards;
+    opacity: 0;
+}
+
+.mesa-activa-card:nth-child(1) { animation-delay: 0.1s; }
+.mesa-activa-card:nth-child(2) { animation-delay: 0.2s; }
+.mesa-activa-card:nth-child(3) { animation-delay: 0.3s; }
+.mesa-activa-card:nth-child(4) { animation-delay: 0.4s; }
+.mesa-activa-card:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mesa-activa-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 15px 30px rgba(102, 126, 234, 0.3);
+}
+
+.mesa-activa-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent 30%,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent 70%
+    );
+    animation: shine 3s infinite linear;
+}
+
+.mesa-activa-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba(255,255,255,0.2);
+}
+
+.mesa-activa-numero {
+    font-size: 2em;
+    font-weight: 800;
+    background: rgba(255,255,255,0.15);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.mesa-activa-hora {
+    font-size: 0.9em;
+    background: rgba(0,0,0,0.2);
+    padding: 5px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.mesa-activa-body {
+    margin-bottom: 15px;
+}
+
+.mesa-activa-pedidos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.mesa-activa-pedido-item {
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(5px);
+    border-left: 3px solid transparent;
+}
+
+.mesa-activa-pedido-item.estado-proceso {
+    border-left-color: #f39c12;
+}
+
+.mesa-activa-pedido-item.estado-listo {
+    border-left-color: #27ae60;
+}
+
+.pedido-nombre {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.pedido-cantidad {
+    background: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+}
+
+.estado-badge-mini {
+    font-size: 0.7em;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.estado-badge-mini.proceso {
+    background: #f39c12;
+    color: #000;
+}
+
+.estado-badge-mini.listo {
+    background: #27ae60;
+    color: white;
+}
+
+.mesa-activa-footer {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 2px solid rgba(255,255,255,0.2);
+}
+
+.btn-ver-pedidos {
+    flex: 1;
+    background: white;
+    color: #667eea;
+    border: none;
+    padding: 8px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.3s;
+}
+
+.btn-ver-pedidos:hover {
+    background: #f8f9fa;
+    transform: translateY(-2px);
+}
+
+.sin-pedidos-activos {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 50px;
+    background: #f8f9fa;
+    border-radius: 15px;
+    color: #95a5a6;
+}
+
+.sin-pedidos-activos i {
+    font-size: 3em;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.sin-pedidos-activos h3 {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    color: #7f8c8d;
+}
+
+/* ===== MODAL PARA DETALLES ===== */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    width: 90%;
+    max-width: 600px;
+    margin: 50px auto;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    font-size: 2em;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.modal-close:hover {
+    background: rgba(255,255,255,0.3);
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Estilos para los pedidos en el modal */
+.modal-pedido-item {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 4px solid transparent;
+}
+
+.modal-pedido-item.estado-proceso {
+    border-left-color: #f39c12;
+}
+
+.modal-pedido-item.estado-listo {
+    border-left-color: #27ae60;
+}
+
+.modal-pedido-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed #dee2e6;
+}
+
+.modal-pedido-nombre {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.modal-pedido-cantidad {
+    background: #3498db;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-weight: 600;
+}
+
+.modal-pedido-nota {
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+    padding: 8px;
+    border-radius: 6px;
+    margin: 8px 0;
+    font-size: 0.9em;
+    color: #856404;
+}
+
+.modal-pedido-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: #7f8c8d;
+}
+
+/* Scrollbar personalizado */
+.mesa-activa-pedidos::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.mesa-activa-pedidos::-webkit-scrollbar-track,
+.modal-body::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+}
+
+.mesa-activa-pedidos::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 10px;
+}
+
+.mesa-activa-pedidos::-webkit-scrollbar-thumb:hover,
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.5);
+}
+
+/* Estadísticas de mesa */
+.mesa-stats-badge {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 10px 0;
+    padding: 5px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.badge-proceso, .badge-listo {
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.badge-proceso {
+    background: #f39c12;
+    color: #000;
+}
+
+.badge-listo {
+    background: #27ae60;
+    color: white;
+}
+
+.mas-pedidos {
+    text-align: center;
+    margin-top: 5px;
+    font-size: 0.8em;
+    color: rgba(255,255,255,0.8);
+    font-style: italic;
+}
+
+.hora-pedido {
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+/* Notificaciones temporales */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.mesa-id-grande {
+    font-size: 2.5em;
+    font-weight: 800;
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+    width: 70px;
+    height: 70px;
+    min-width: 70px; /* Evita que se achique */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(5px);
+    margin-right: 15px;
+    transition: all 0.3s ease;
+    line-height: 1; /* Asegura que el texto no se desplace */
+    aspect-ratio: 1; /* Fuerza la relación de aspecto 1:1 */
+    flex-shrink: 0; /* Evita que se encoja */
+    box-sizing: border-box; /* Incluye el padding y border en el tamaño */
+    padding: 0; /* Sin padding interno */
+}
+
+/* Para asegurar que el número esté perfectamente centrado */
+.mesa-id-grande::before {
+    content: '';
+    display: inline-block;
+    height: 100%;
+    vertical-align: middle;
+}
+
+/* Opcional: Efecto hover para darle más vida */
+.mesa-activa-card:hover .mesa-id-grande {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+

@@ -4,8 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mozo</title>
+
+    <link rel="stylesheet" th:href="@{/Mozo/Mozo.css}">
 </head>
 <body>
-    <h1>mozo</h1>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-user-tie"></i> <span th:text="${titulo}"></span></h1>
+        </header>
+
+        <!-- NUEVA SECCIÓN: MESAS CON PEDIDOS ACTIVOS (similar a Cocinero) -->
+        <div class="mesas-activas-section" id="mesasActivasSection">
+            <h2 class="section-title">
+                <i class="fas fa-clipboard-list"></i>
+                Mesas con Pedidos Activos
+                <span class="badge-activas" id="total-mesas-activas">0</span>
+            </h2>
+            
+            <div class="mesas-activas-container" id="mesasActivasContainer">
+                <!-- Las mesas con pedidos activos se cargarán aquí dinámicamente -->
+                <div class="sin-pedidos-activos" id="sinPedidosActivos">
+                    <i class="fas fa-concierge-bell"></i>
+                    <h3>No hay mesas con pedidos activos</h3>
+                    <p>Las mesas aparecerán aquí cuando tengan pedidos en proceso o listos</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN DE TODAS LAS MESAS (EXISTENTE) -->
+        <h2 class="section-title">
+            <i class="fas fa-chair"></i>
+            Todas las Mesas
+        </h2>
+        <div class="cards-container" id="cardsContainer">
+            <a th:each="m : ${Nmesas}" th:href="@{/mesa/{numero}(numero=${m.id})}" class="card" th:attr="data-mesa-id=${m.id}">
+                <input type="hidden" th:value="${m.id}" /> 
+                <div class="card-number" th:text="${m.id}"></div>
+                <div class="card-label" th:text="${m.mesa}"></div>
+                <div class="estado-indicador" id="indicador-mesa-${m.id}"></div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Modal para ver detalles de la mesa (similar a Pendientes.html) -->
+    <div class="modal" id="detalleMesaModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-chair"></i> Detalles de <span id="modalMesaNombre">Mesa</span></h2>
+                <button class="modal-close" onclick="cerrarModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalPedidosContainer">
+                <!-- Los pedidos se cargarán aquí -->
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/Mozo/Mozo.js}"></script>
 </body>
 </html>

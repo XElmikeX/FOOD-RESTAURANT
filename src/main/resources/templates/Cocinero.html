@@ -4,8 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cocinero</title>
+    <link rel="stylesheet" th:href="@{/Cocinero/Cocinero.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <h1>cocinero</h1>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-utensils"></i> Pedidos para Cocina</h1>
+            <p>Sistema de gestión de pedidos en tiempo real</p>
+        </header>
+        
+        <div class="status-bar">
+            <div class="total-pedidos">
+                <i class="fas fa-clipboard-list"></i>
+                <span th:text="${totalPedidos}"></span> mesas con pedidos pendientes
+            </div>
+        </div>
+        
+        <div class="mesas-container">
+            <div th:if="${mesasPendientes == null or mesasPendientes.empty}" class="sin-pedidos">
+                <i class="fas fa-concierge-bell"></i>
+                <h3>No hay mesas con pedidos pendientes</h3>
+                <p>Las mesas aparecerán aquí cuando los mozos envíen pedidos</p>
+            </div>
+        
+            <div th:if="${mesasPendientes != null and not mesasPendientes.empty}">
+                <div class="cards-container">
+                    <a th:each="m : ${mesasPendientes}"  th:href="@{/Rol/Cocinero/mesa/{mesaId}(mesaId=${m.id})}"  class="card">
+                        <div class="card-hora">
+                            <i class="far fa-clock"></i>
+                            <span th:text="${#temporals.format(horasPorMesa.get(m.id), 'HH:mm')}"></span>
+                        </div>
+                        <input type="hidden" th:value="${m.id}" /> 
+                        <div class="card-number" th:text="${m.id}"></div>
+                        <div class="card-label" th:text="${m.mesa}"></div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Agrega Font Awesome para los íconos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <!-- Script para manejar los pedidos -->
+    <script th:src="@{/Cocinero/Cocinero.js}"></script>
+    
+    <!-- Script inline para pasar datos de Thymeleaf a JavaScript -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        // Pasar datos de Thymeleaf a JavaScript
+        window.pedidosPorMesa = /*[[${pedidosJson}]]*/ '{}';
+        /*]]>*/
+    </script>
 </body>
 </html>

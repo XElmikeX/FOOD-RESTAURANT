@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú</title>
+
+    <link rel="stylesheet" th:href="@{/Menu/Menu.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 th:text="${titulo}"></h1>
+        </header>
+    </div>
+    <div class="ubi">
+        <div class="buscador">
+            <!--pendiente el buscador-->
+        </div>
+
+        <div class="Pedir">
+            <button id="pedirBtn">Pedir</button>
+
+            <div class="segPedir">
+                <div id="menuEnviar"></div>
+                <div class="btnConfirmacion">
+                    <button form="formPedidos" type="submit" class="btnConfigGuardar">Enviar</button>
+                    <button class="btnConfigCancelar">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="indicador">
+            <h2 th:text="'Mesa: ' + ${numero}"></h2>
+        </div>
+    </div>
+    <section>
+        <form th:action="@{/cocinero}" method="post" class="menu" id="formPedidos">
+            
+            <input type="hidden" name="datosPedido" id="datosPedido">
+            <input type="hidden" name="idMesa" th:value="${numero}" id="idMesa">
+            
+            <div class="plato" th:each="p : ${comida}" th:data-id="${p.id}" th:data-nombre="${p.nombre}">
+
+                <div class="tit">
+                    <h4 th:text="${p.nombre}"></h4>
+                </div>
+
+                <div class="personalizacion">
+
+                    <button type="button" class="btnPersonalizar">Personalización</button>
+
+                    <div class="panelPersonalizacion">
+                        <textarea class="detallePersonalizacion" placeholder="Nota:"></textarea>
+                                    
+                        <div class="botonesPersonalizacion">
+                            <button class="btnGuardar notaSave">Guardar</button>
+                            <button class="btnCancelar notaClear">Cancelar</button>
+                        </div>
+                    </div>
+
+                    <div class="cantidad">
+                        <input type="number" class="cantidadInput" value="0">
+                        <button type="button" class="btnSubir incre">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button type="button" class="btnBajar minus">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </section>
+</body>
+    <script th:src="@{/Menu/SumRes.js}"></script>
+    <script th:src="@{/Menu/Personalizacion.js}"></script>
+
+</html>

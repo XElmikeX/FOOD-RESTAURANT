@@ -4,15 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rol</title>
+
+    <link rel="stylesheet" th:href="@{/Inicio/Inicio.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <section>
-        <div>
-            <a th:href="@{/Rol/Mozo}">Mozo</a>
+    <div class="container">
+        <!-- Encabezado -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-utensils"></i>
+            </div>
+            <h1>Sistema integrado de gestión</h1>
+        </header>
+        
+        <!-- Contenedor de roles -->
+        <div class="roles-container">
+            <!-- Tarjeta Mozo -->
+            <a th:href="@{/Rol/Mozo}" class="role-card role-mozo">
+                <div class="role-icon">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <h2 class="role-title">Mozo</h2>
+                <div class="role-btn">
+                    <i class="fas fa-sign-in-alt"></i> Ingresar como Mozo
+                </div>
+            </a>
+            
+            <!-- Tarjeta Cocinero -->
+            <a th:href="@{/Rol/Cocinero}" class="role-card role-cocinero">
+                <div class="role-icon">
+                    <i class="fas fa-utensils"></i>
+                </div>
+                <h2 class="role-title">Cocinero</h2>
+                <div class="role-btn">
+                    <i class="fas fa-sign-in-alt"></i> Ingresar como Cocinero
+                </div>
+            </a>
+
+            <!-- Tarjeta Facturero -->
+            <a th:href="@{/Rol/Facturero}" class="role-card role-facturero">
+                <div class="role-icon">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+                <h2 class="role-title">Facturero</h2>
+                <div class="role-btn">
+                    <i class="fas fa-sign-in-alt"></i> Ingresar como Facturero
+                </div>
+            </a>
         </div>
-        <div>
-            <a th:href="@{/Rol/Cocinero}">Cocinero</a>
-        </div>
-    </section>
+    </div>
+    
+    <!-- Indicador de carga -->
+    <div class="loader" id="loader">
+        <i class="fas fa-spinner fa-spin"></i> Redirigiendo...
+    </div>
 </body>
+
+    <script th:src="@{/Inicio/Inicio.js}"></script>
 </html>

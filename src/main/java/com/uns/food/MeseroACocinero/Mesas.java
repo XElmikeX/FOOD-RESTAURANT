@@ -14,6 +14,8 @@ public class Mesas {
 
     private String mesa;
 
+    private Boolean pendiente = true;
+
     public Long getId(){
         return id;
     }
@@ -26,5 +28,12 @@ public class Mesas {
     }
     public void setMesa(String mesa){
         this.mesa = mesa;
+    }
+
+    public Boolean getPendiente(){
+        return pendiente;
+    }
+    public void setPendiente(Boolean pendiente){
+        this.pendiente = pendiente;
     }
 }

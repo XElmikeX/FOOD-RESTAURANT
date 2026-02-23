@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos de Mesa</title>
+    <link rel="stylesheet" th:href="@{/Pendientes/Pendientes.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="infor">
+                <h1>
+                    <div class="logo-container">
+                        <div class="logo-circle">
+                            <i class="fas fa-utensils logo-icon"></i>
+                        </div>
+                    </div>
+                    <span>Pedidos - <span class="mesa-numero" th:text="${mesa.mesa}"></span></span>
+                </h1>
+                <div class="mesaEscojida"><span class="mesa-numero" th:text="'Mesa: ' + ${mesa.id}"></span></div>
+            </div>
+            
+            <a th:href="@{/Rol/Cocinero}" class="back-btn">
+                <i class="fas fa-arrow-left"></i>
+                Volver a todas las mesas
+            </a>
+        </header>
+        
+        <!-- MENSAJE SIN PEDIDOS -->
+        <div th:if="${pedidosMesa == null or pedidosMesa.empty}" class="sin-pedidos">
+            <i class="fas fa-check-circle"></i>
+            <h3>¡No hay pedidos pendientes!</h3>
+            <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
+            <a th:href="@{/Rol/Cocinero}" class="back-btn">
+                <i class="fas fa-arrow-left"></i>
+                Volver al panel principal
+            </a>
+        </div>
+        
+        <!-- GRID DE CARTAS DECORADAS -->
+        <div th:if="${pedidosMesa != null and not pedidosMesa.empty}" class="cards-pedidos-container">
+            
+            <div th:each="p, iterStat : ${pedidosMesa}" 
+                th:data-pedido-id="${p.id}"
+                class="pedido-card pendiente">
+                
+                <!-- QUITAMOS EL FORM DEL CONTENEDOR PRINCIPAL -->
+                <!-- ENCABEZADO CON EFECTO SHINE -->
+                <div class="card-header pend">
+                    <div class="card-numero" th:text="${iterStat.index + 1}"></div>
+                    <div class="card-hora">
+                        <i class="far fa-clock"></i>
+                        <span th:text="${#temporals.format(p.hora, 'HH:mm')}"></span>
+                    </div>
+                </div>
+                
+                <!-- CUERPO CON MEJORES EFECTOS -->
+                <div class="card-body">
+                    <div class="card-comida">
+                        <span class="nombre-plato" th:text="${p.comida.nombre}"></span>
+                        <span class="card-cantidad" th:text="'x' + ${p.cantidad}"></span>
+                    </div>
+                    
+                    <!-- NOTA CON ESTILO MEJORADO -->
+                    <div th:if="${p.nota == null and p.nota.isEmpty()}" class="espacio">
+                        <span text="x"></span>
+                    </div>
+                    <div th:if="${p.nota != null and not p.nota.isEmpty()}" 
+                        class="card-nota">
+                        <i class="fas fa-sticky-note"></i>
+                        <span class="texto-nota" th:text="${p.nota}"></span>
+                    </div>
+                </div>
+                
+                <!-- BOTONES DE ESTADO MEJORADOS -->
+                <div class="card-footer">
+                    <div class="estado-buttons">
+                        <button class="btn-estado btn-pendiente activo">
+                            <i class="fas fa-clock"></i>
+                            <span>Pendiente</span>
+                        </button>
+                        
+                        <button class="btn-estado btn-proceso">
+                            <i class="fas fa-spinner"></i>
+                            <span>Proceso</span>
+                        </button>
+                        
+                        <button class="btn-estado btn-listo">
+                            <i class="fas fa-check"></i>
+                            <span>Listo</span>
+                        </button>
+                    </div>
+                    
+                    <div class="confirmacion-container">
+                        <!-- FORM SEPARADO SOLO PARA EL BOTÓN DE CONFIRMACIÓN -->
+                        <form th:action="@{/completarPedido/{pedidoId}(pedidoId=${p.id})}" 
+                            method="post" 
+                            class="form-completar">
+                            <button type="submit" class="btn-confirmacion">
+                                <i class="fas fa-paper-plane"></i>
+                                <span>Pedido Realizado</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+    <script th:src="@{/Pendientes/Pendientes.js}"></script>
+    <script th:src="@{/Pendientes/envioComplet.js}"></script>
+</html>
