@@ -1,16 +1,16 @@
 package com.uns.food.MeseroACocinero;
 
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
-import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpRequestInitializer;
+import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.*;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -24,78 +24,124 @@ import java.util.*;
 public class GoogleSheetsService {
 
     private static final String APPLICATION_NAME = "Restaurante Facturacion";
-    //la id de la hoja de google sheet api
-    private static final String SPREADSHEET_ID = "13fWsFYrAuHF3-_s5mQoyX1qm8rVGdzMRyqmz4zp39wM";
-    private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
-    private static final String TOKENS_DIRECTORY_PATH = "tokens";
+    private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+    
+    @Value("${google.spreadsheet.id:13fWsFYrAuHF3-_s5mQoyX1qm8rVGdzMRyqmz4zp39wM}")
+    private String spreadsheetId;
+    
+    @Value("${google.service.account.enabled:false}")
+    private boolean useServiceAccount;
     
     private Sheets sheetsService;
     private boolean autorizado = false;
-    private Integer sheetIdVentas = null; // Guardamos el ID de la hoja
+    private Integer sheetIdVentas = null;
+    private String errorMessage = "";
 
     @PostConstruct
     public void init() {
         try {
-            this.sheetsService = getSheetsService();
-            this.autorizado = true;
-            System.out.println("✅ Google Sheets Service inicializado correctamente");
-            System.out.println("📁 Los tokens se guardan en: " + new File(TOKENS_DIRECTORY_PATH).getAbsolutePath());
+            if (useServiceAccount) {
+                inicializarConServiceAccount();
+            } else {
+                inicializarConOAuth();
+            }
             
-            // Obtener el ID de la hoja "Ventas" y guardarlo
-            obtenerSheetIdVentas();
-            
-            // Inicializar la hoja si es necesario
-            inicializarHoja();
-            
+            if (autorizado) {
+                System.out.println("✅ Google Sheets Service inicializado correctamente");
+                obtenerSheetIdVentas();
+                inicializarHoja();
+            }
         } catch (Exception e) {
             this.autorizado = false;
+            this.errorMessage = e.getMessage();
             System.err.println("❌ Error al inicializar Google Sheets: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private Sheets getSheetsService() throws IOException, GeneralSecurityException {
-        InputStream in = GoogleSheetsService.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+    private void inicializarConServiceAccount() throws IOException, GeneralSecurityException {
+        try {
+            // Intentar cargar desde classpath (para producción)
+            InputStream serviceAccountStream = getClass().getResourceAsStream("/service-account.json");
+            
+            // Si no encuentra, intentar desde variable de entorno (Railway)
+            if (serviceAccountStream == null) {
+                String serviceAccountJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON");
+                if (serviceAccountJson != null && !serviceAccountJson.isEmpty()) {
+                    serviceAccountStream = new ByteArrayInputStream(serviceAccountJson.getBytes());
+                }
+            }
+            
+            if (serviceAccountStream == null) {
+                throw new FileNotFoundException("No se encontró service-account.json ni variable GOOGLE_SERVICE_ACCOUNT_JSON");
+            }
+            
+            GoogleCredentials credentials = ServiceAccountCredentials.fromStream(serviceAccountStream)
+                    .createScoped(Collections.singleton(SheetsScopes.SPREADSHEETS));
+            
+            HttpRequestInitializer requestInitializer = new HttpCredentialsAdapter(credentials);
+            
+            sheetsService = new Sheets.Builder(
+                    GoogleNetHttpTransport.newTrustedTransport(),
+                    JSON_FACTORY,
+                    requestInitializer)
+                    .setApplicationName(APPLICATION_NAME)
+                    .build();
+            
+            this.autorizado = true;
+            System.out.println("✅ Autenticación con Service Account exitosa");
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error con Service Account: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    private void inicializarConOAuth() throws IOException, GeneralSecurityException {
+        InputStream in = GoogleSheetsService.class.getResourceAsStream("/credentials.json");
         if (in == null) {
-            throw new FileNotFoundException("No se encontró el archivo: " + CREDENTIALS_FILE_PATH);
+            throw new FileNotFoundException("No se encontró el archivo: credentials.json");
         }
         
-        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(
-            JacksonFactory.getDefaultInstance(), 
-            new InputStreamReader(in)
-        );
-
+        com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets clientSecrets = 
+            com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets.load(
+                JSON_FACTORY, new InputStreamReader(in));
+        
         List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
         
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+        com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow flow = 
+            new com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow.Builder(
+                GoogleNetHttpTransport.newTrustedTransport(),
+                JSON_FACTORY,
+                clientSecrets,
+                scopes)
+                .setDataStoreFactory(new com.google.api.client.util.store.FileDataStoreFactory(
+                    new File(System.getProperty("java.io.tmpdir") + "/tokens")))
+                .setAccessType("offline")
+                .build();
+        
+        com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp receiver = 
+            new com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp(
+                flow, 
+                new com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver.Builder()
+                    .setPort(8888)
+                    .build());
+        
+        com.google.api.client.auth.oauth2.Credential credential = receiver.authorize("user");
+        
+        sheetsService = new Sheets.Builder(
             GoogleNetHttpTransport.newTrustedTransport(),
-            JacksonFactory.getDefaultInstance(),
-            clientSecrets,
-            scopes)
-            .setDataStoreFactory(new FileDataStoreFactory(new File(TOKENS_DIRECTORY_PATH)))
-            .setAccessType("offline")
-            .build();
-
-        LocalServerReceiver receiver = new LocalServerReceiver.Builder()
-            .setPort(8888)
-            .build();
-            
-        Credential credential = new AuthorizationCodeInstalledApp(flow, receiver)
-            .authorize("user");
-
-        return new Sheets.Builder(
-            GoogleNetHttpTransport.newTrustedTransport(),
-            JacksonFactory.getDefaultInstance(),
+            JSON_FACTORY,
             credential)
             .setApplicationName(APPLICATION_NAME)
             .build();
+        
+        this.autorizado = true;
+        System.out.println("✅ Autenticación OAuth exitosa (modo local)");
     }
 
-    /**
-     * Obtiene y guarda el ID de la hoja "Ventas"
-     */
     private void obtenerSheetIdVentas() throws IOException {
-        Spreadsheet spreadsheet = sheetsService.spreadsheets().get(SPREADSHEET_ID).execute();
+        Spreadsheet spreadsheet = sheetsService.spreadsheets().get(spreadsheetId).execute();
         
         for (Sheet sheet : spreadsheet.getSheets()) {
             if (sheet.getProperties().getTitle().equals("Ventas")) {
@@ -107,10 +153,8 @@ public class GoogleSheetsService {
     }
 
     private void inicializarHoja() throws IOException {
-        // Verificar si la hoja existe
-        Spreadsheet spreadsheet = sheetsService.spreadsheets().get(SPREADSHEET_ID).execute();
+        Spreadsheet spreadsheet = sheetsService.spreadsheets().get(spreadsheetId).execute();
         
-        // Buscar o crear hoja "Ventas"
         Sheet ventasSheet = null;
         for (Sheet sheet : spreadsheet.getSheets()) {
             if (sheet.getProperties().getTitle().equals("Ventas")) {
@@ -120,7 +164,6 @@ public class GoogleSheetsService {
         }
         
         if (ventasSheet == null) {
-            // Crear nueva hoja llamada "Ventas"
             List<Request> requests = new ArrayList<>();
             requests.add(new Request().setAddSheet(
                 new AddSheetRequest().setProperties(
@@ -129,19 +172,16 @@ public class GoogleSheetsService {
             BatchUpdateSpreadsheetRequest batchRequest = new BatchUpdateSpreadsheetRequest()
                 .setRequests(requests);
             
-            sheetsService.spreadsheets().batchUpdate(SPREADSHEET_ID, batchRequest).execute();
-            
-            // Después de crear, obtener el nuevo sheetId
+            sheetsService.spreadsheets().batchUpdate(spreadsheetId, batchRequest).execute();
             obtenerSheetIdVentas();
         }
     }
 
     public void guardarFactura(Long mesaId, List<PortalController.PedidoFacturaDTO> pedidos) throws IOException {
         if (!autorizado) {
-            throw new IOException("Google Sheets no está autorizado. Revisa los logs.");
+            throw new IOException("Google Sheets no está autorizado: " + errorMessage);
         }
 
-        // Asegurarnos de que tenemos el sheetId
         if (sheetIdVentas == null) {
             obtenerSheetIdVentas();
         }
@@ -151,15 +191,13 @@ public class GoogleSheetsService {
         String fechaCabecera = "Fecha: " + fecha;
         String horaActual = ahora.format(DateTimeFormatter.ofPattern("HH:mm"));
         
-        // 1. Obtener TODOS los datos actuales de la hoja
         String range = "Ventas!A:D";
         ValueRange response = sheetsService.spreadsheets().values()
-            .get(SPREADSHEET_ID, range)
+            .get(spreadsheetId, range)
             .execute();
         
         List<List<Object>> valoresExistentes = response.getValues();
         
-        // 2. Buscar si ya existe un bloque para esta fecha
         int filaFechaExistente = -1;
         int filaTotalExistente = -1;
         
@@ -184,18 +222,13 @@ public class GoogleSheetsService {
         }
         
         if (filaFechaExistente == -1) {
-            // ===== CASO 1: NO existe bloque para esta fecha =====
             crearNuevoBloque(fechaCabecera, horaActual, pedidos, valoresExistentes);
         } else {
-            // ===== CASO 2: YA existe bloque =====
             agregarABloqueExistente(fecha, fechaCabecera, horaActual, pedidos, 
                                    valoresExistentes, filaFechaExistente, filaTotalExistente);
         }
     }
 
-    /**
-     * Crea un nuevo bloque para un día que no existe
-     */
     private void crearNuevoBloque(String fechaCabecera, String horaActual, 
                                   List<PortalController.PedidoFacturaDTO> pedidos,
                                   List<List<Object>> valoresExistentes) throws IOException {
@@ -205,7 +238,7 @@ public class GoogleSheetsService {
         int filaInicio = (valoresExistentes != null ? valoresExistentes.size() : 0);
         
         if (filaInicio > 0) {
-            valores.add(Arrays.asList("")); // Fila vacía como separador
+            valores.add(Arrays.asList(""));
         }
         
         valores.add(Arrays.asList(fechaCabecera, "", "", ""));
@@ -228,7 +261,7 @@ public class GoogleSheetsService {
         ValueRange body = new ValueRange().setValues(valores);
         
         sheetsService.spreadsheets().values()
-            .append(SPREADSHEET_ID, insertRange, body)
+            .append(spreadsheetId, insertRange, body)
             .setValueInputOption("USER_ENTERED")
             .setInsertDataOption("INSERT_ROWS")
             .execute();
@@ -236,20 +269,16 @@ public class GoogleSheetsService {
         System.out.println("✅ Nuevo bloque creado para el día " + fechaCabecera);
     }
 
-    /**
-     * Agrega productos a un bloque existente
-     */
     private void agregarABloqueExistente(String fecha, String fechaCabecera, String horaActual,
                                         List<PortalController.PedidoFacturaDTO> pedidos,
                                         List<List<Object>> valoresExistentes,
                                         int filaFechaExistente, int filaTotalExistente) throws IOException {
         
-        // 1. ELIMINAR el TOTAL existente usando el sheetId correcto
         List<Request> deleteRequests = new ArrayList<>();
         deleteRequests.add(new Request().setDeleteDimension(
             new DeleteDimensionRequest()
                 .setRange(new DimensionRange()
-                    .setSheetId(sheetIdVentas)  // ← Usamos el ID dinámico
+                    .setSheetId(sheetIdVentas)
                     .setDimension("ROWS")
                     .setStartIndex(filaTotalExistente)
                     .setEndIndex(filaTotalExistente + 1))));
@@ -257,16 +286,14 @@ public class GoogleSheetsService {
         BatchUpdateSpreadsheetRequest deleteBatchRequest = new BatchUpdateSpreadsheetRequest()
             .setRequests(deleteRequests);
         
-        sheetsService.spreadsheets().batchUpdate(SPREADSHEET_ID, deleteBatchRequest).execute();
+        sheetsService.spreadsheets().batchUpdate(spreadsheetId, deleteBatchRequest).execute();
         
-        // 2. Obtener datos actualizados después del DELETE
         ValueRange updatedResponse = sheetsService.spreadsheets().values()
-            .get(SPREADSHEET_ID, "Ventas!A:D")
+            .get(spreadsheetId, "Ventas!A:D")
             .execute();
         
         List<List<Object>> valoresActualizados = updatedResponse.getValues();
         
-        // 3. Encontrar el final de los productos de este día
         int nuevaFilaFecha = -1;
         int finalProductos = valoresActualizados.size();
         
@@ -288,22 +315,17 @@ public class GoogleSheetsService {
             }
         }
         
-        // 4. Calcular total de productos existentes
         double totalExistente = 0;
-        int totalProductosExistentes = 0;
-        
         for (int i = nuevaFilaFecha + 2; i < finalProductos; i++) {
             List<Object> fila = valoresActualizados.get(i);
             if (fila != null && fila.size() > 2 && fila.get(2) != null) {
                 String totalStr = fila.get(2).toString().replace("$", "");
                 try {
                     totalExistente += Double.parseDouble(totalStr);
-                    totalProductosExistentes++;
                 } catch (NumberFormatException e) {}
             }
         }
         
-        // 5. Preparar nuevos productos
         List<List<Object>> nuevosProductos = new ArrayList<>();
         double totalNuevos = 0;
         for (PortalController.PedidoFacturaDTO pedido : pedidos) {
@@ -316,17 +338,15 @@ public class GoogleSheetsService {
             totalNuevos += pedido.getPrecioTotal();
         }
         
-        // 6. Insertar nuevos productos
         String insertRange = "Ventas!A" + (finalProductos + 1);
         ValueRange body = new ValueRange().setValues(nuevosProductos);
         
         sheetsService.spreadsheets().values()
-            .append(SPREADSHEET_ID, insertRange, body)
+            .append(spreadsheetId, insertRange, body)
             .setValueInputOption("USER_ENTERED")
             .setInsertDataOption("INSERT_ROWS")
             .execute();
         
-        // 7. Insertar nuevo TOTAL
         double totalActualizado = totalExistente + totalNuevos;
         int nuevaPosicionTotal = finalProductos + nuevosProductos.size();
         
@@ -337,7 +357,7 @@ public class GoogleSheetsService {
         ValueRange totalBody = new ValueRange().setValues(totalData);
         
         sheetsService.spreadsheets().values()
-            .append(SPREADSHEET_ID, totalInsertRange, totalBody)
+            .append(spreadsheetId, totalInsertRange, totalBody)
             .setValueInputOption("USER_ENTERED")
             .setInsertDataOption("INSERT_ROWS")
             .execute();
@@ -349,7 +369,7 @@ public class GoogleSheetsService {
     public Map<String, Object> obtenerResumenDiario() throws IOException {
         String range = "Ventas!A:D";
         ValueRange response = sheetsService.spreadsheets().values()
-            .get(SPREADSHEET_ID, range)
+            .get(spreadsheetId, range)
             .execute();
         
         List<List<Object>> valores = response.getValues();
@@ -406,7 +426,7 @@ public class GoogleSheetsService {
     }
 
     public String getUrlHoja() {
-        return "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID;
+        return "https://docs.google.com/spreadsheets/d/" + spreadsheetId;
     }
     
     public boolean isAutorizado() {
