@@ -35,6 +35,7 @@ build/
 credentials.json
 service-account.json
 tokens/
+application-secrets.properties
 *.key
 
 ### VS Code ###
