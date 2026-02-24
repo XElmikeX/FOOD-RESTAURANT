@@ -97,47 +97,71 @@ public class GoogleSheetsService {
         }
     }
 
+    @Value("${google.client.id:#{null}}")
+    private String clientId;
+
+    @Value("${google.client.secret:#{null}}")
+    private String clientSecret;
+
     private void inicializarConOAuth() throws IOException, GeneralSecurityException {
-        InputStream in = GoogleSheetsService.class.getResourceAsStream("/credentials.json");
-        if (in == null) {
-            throw new FileNotFoundException("No se encontró el archivo: credentials.json");
-        }
-        
-        com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets clientSecrets = 
-            com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets.load(
-                JSON_FACTORY, new InputStreamReader(in));
-        
-        List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
-        
-        com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow flow = 
-            new com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow.Builder(
-                GoogleNetHttpTransport.newTrustedTransport(),
-                JSON_FACTORY,
-                clientSecrets,
-                scopes)
-                .setDataStoreFactory(new com.google.api.client.util.store.FileDataStoreFactory(
-                    new File(System.getProperty("java.io.tmpdir") + "/tokens")))
-                .setAccessType("offline")
-                .build();
-        
-        com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp receiver = 
-            new com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp(
-                flow, 
-                new com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver.Builder()
-                    .setPort(8888)
-                    .build());
-        
-        com.google.api.client.auth.oauth2.Credential credential = receiver.authorize("user");
-        
-        sheetsService = new Sheets.Builder(
+    // Obtener credenciales desde variables de entorno
+    String clientId = System.getenv("GOOGLE_CLIENT_ID");
+    String clientSecret = System.getenv("GOOGLE_CLIENT_SECRET");
+    
+    if (clientId == null || clientSecret == null) {
+        // Intentar desde properties como fallback
+        clientId = this.clientId;
+        clientSecret = this.clientSecret;
+    }
+    
+    if (clientId == null || clientSecret == null) {
+        throw new IOException("No se encontraron credenciales OAuth. Configura GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en las variables de entorno");
+    }
+    
+    // Construir client secrets desde variables
+    com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets clientSecrets = 
+        new com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets();
+    
+    // Crear el objeto de detalles de la aplicación web
+    com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets.Details details = 
+        new com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets.Details();
+    details.setClientId(clientId);
+    details.setClientSecret(clientSecret);
+    details.setRedirectUris(Collections.singletonList("http://localhost:8888/Callback"));
+    
+    clientSecrets.setWeb(details);
+    
+    List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
+    
+    com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow flow = 
+        new com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow.Builder(
             GoogleNetHttpTransport.newTrustedTransport(),
             JSON_FACTORY,
-            credential)
-            .setApplicationName(APPLICATION_NAME)
+            clientSecrets,
+            scopes)
+            .setDataStoreFactory(new com.google.api.client.util.store.FileDataStoreFactory(
+                new File(System.getProperty("java.io.tmpdir") + "/tokens")))
+            .setAccessType("offline")
             .build();
-        
-        this.autorizado = true;
-        System.out.println("✅ Autenticación OAuth exitosa (modo local)");
+    
+    com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp receiver = 
+        new com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp(
+            flow, 
+            new com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver.Builder()
+                .setPort(8888)
+                .build());
+    
+    com.google.api.client.auth.oauth2.Credential credential = receiver.authorize("user");
+    
+    sheetsService = new Sheets.Builder(
+        GoogleNetHttpTransport.newTrustedTransport(),
+        JSON_FACTORY,
+        credential)
+        .setApplicationName(APPLICATION_NAME)
+        .build();
+    
+    this.autorizado = true;
+    System.out.println("✅ Autenticación OAuth exitosa usando variables de entorno");
     }
 
     private void obtenerSheetIdVentas() throws IOException {
