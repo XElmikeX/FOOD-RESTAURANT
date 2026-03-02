@@ -68,11 +68,22 @@ public class GoogleSheetsService {
                 new ByteArrayInputStream(serviceAccountJson.getBytes()))
                 .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
         } else {
-            // Local - usar archivo credentials.json
-            System.out.println("📁 Usando credenciales locales desde archivo");
-            InputStream in = GoogleSheetsService.class.getResourceAsStream("/credentials.json");
+            // Local - usar archivo de cuenta de servicio
+            System.out.println("📁 Buscando cuenta de servicio local...");
+            
+            // Intentar con el archivo service-account.json
+            InputStream in = GoogleSheetsService.class.getResourceAsStream("/service-account.json");
+            if (in != null) {
+                System.out.println("✅ Usando cuenta de servicio desde archivo local");
+                return GoogleCredentials.fromStream(in)
+                    .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
+            }
+            
+            // Fallback a OAuth con credentials.json (solo por si acaso)
+            System.out.println("⚠️ Usando OAuth con credentials.json como fallback");
+            in = GoogleSheetsService.class.getResourceAsStream("/credentials.json");
             if (in == null) {
-                throw new FileNotFoundException("No se encontró credentials.json");
+                throw new FileNotFoundException("No se encontró ni service-account.json ni credentials.json");
             }
             
             return GoogleCredentials.fromStream(in)

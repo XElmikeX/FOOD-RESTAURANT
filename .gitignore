@@ -37,3 +37,7 @@ credentials.json
 !credentials.json  # Si quieres mantener el archivo vacío como template
 application-secrets.properties
 tokens/
+
+service-account.json
+credentials.json
+*.json
