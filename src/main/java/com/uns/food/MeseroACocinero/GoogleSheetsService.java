@@ -1,22 +1,13 @@
 package com.uns.food.MeseroACocinero;
 
-import com.google.api.client.auth.oauth2.BearerToken;
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
-import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.BasicAuthentication;
-import com.google.api.client.http.GenericUrl;
-import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.client.util.store.DataStoreFactory;
-import com.google.api.client.util.store.FileDataStoreFactory;
-import com.google.api.client.util.store.MemoryDataStoreFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.*;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -30,14 +21,11 @@ import java.util.*;
 public class GoogleSheetsService {
 
     private static final String APPLICATION_NAME = "Restaurante Facturacion";
-    //la id de la hoja de google sheet api
     private static final String SPREADSHEET_ID = "13fWsFYrAuHF3-_s5mQoyX1qm8rVGdzMRyqmz4zp39wM";
-    private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
-    private static final String TOKENS_DIRECTORY_PATH = "tokens";
     
     private Sheets sheetsService;
     private boolean autorizado = false;
-    private Integer sheetIdVentas = null; // Guardamos el ID de la hoja
+    private Integer sheetIdVentas = null;
 
     @PostConstruct
     public void init() {
@@ -45,12 +33,8 @@ public class GoogleSheetsService {
             this.sheetsService = getSheetsService();
             this.autorizado = true;
             System.out.println("✅ Google Sheets Service inicializado correctamente");
-            System.out.println("📁 Los tokens se guardan en: " + new File(TOKENS_DIRECTORY_PATH).getAbsolutePath());
             
-            // Obtener el ID de la hoja "Ventas" y guardarlo
             obtenerSheetIdVentas();
-            
-            // Inicializar la hoja si es necesario
             inicializarHoja();
             
         } catch (Exception e) {
@@ -60,107 +44,40 @@ public class GoogleSheetsService {
         }
     }
 
-    private GoogleClientSecrets loadClientSecrets() throws IOException {
-        String credentialsJson = System.getenv("GOOGLE_CREDENTIALS");
-        
-        if (credentialsJson == null) {
-                // Modo local - leer archivo físico
-                InputStream in = GoogleSheetsService.class.getResourceAsStream("/credentials.json");
-                return GoogleClientSecrets.load(JacksonFactory.getDefaultInstance(), new InputStreamReader(in));
-            }
-            
-            // Modo Railway - usar variable de entorno
-            return GoogleClientSecrets.load(
-                JacksonFactory.getDefaultInstance(), 
-                new StringReader(credentialsJson)
-            );
-    }
-
-    private Credential authorize() throws IOException, GeneralSecurityException {
-    GoogleClientSecrets clientSecrets = loadClientSecrets();
-    
-    // Verificar si hay token en variable de entorno (Railway)
-    String tokenBase64 = System.getenv("GOOGLE_CREDENTIAL_TOKEN");
-    
-    NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-    JacksonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-    
-    if (tokenBase64 != null && !tokenBase64.isEmpty()) {
-        try {
-            // Railway - usar el token de la variable de entorno
-            byte[] tokenBytes = Base64.getDecoder().decode(tokenBase64);
-            
-            // Crear DataStoreFactory en memoria
-            DataStoreFactory dataStoreFactory = new MemoryDataStoreFactory();
-            
-            // Configurar el flujo de autorización
-            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                transport, jsonFactory, clientSecrets,
-                Collections.singletonList(SheetsScopes.SPREADSHEETS))
-                .setDataStoreFactory(dataStoreFactory)
-                .setAccessType("offline")
-                .build();
-            
-            // Cargar el credential desde los bytes del token
-            Credential credential = flow.loadCredential("user");
-            
-            // Si no se pudo cargar, crear uno nuevo con el refresh token
-            if (credential == null) {
-                // Parsear el token (asumiendo que es el StoredCredential file)
-                try (ByteArrayInputStream bais = new ByteArrayInputStream(tokenBytes)) {
-                    java.util.Properties props = new java.util.Properties();
-                    props.load(bais);
-                    
-                    String refreshToken = props.getProperty("refreshToken");
-                    if (refreshToken != null) {
-                        credential = new Credential.Builder(BearerToken.authorizationHeaderAccessMethod())
-                            .setTransport(transport)
-                            .setJsonFactory(jsonFactory)
-                            .setTokenServerUrl(new GenericUrl("https://oauth2.googleapis.com/token"))
-                            .setClientAuthentication(new BasicAuthentication(
-                                clientSecrets.getDetails().getClientId(),
-                                clientSecrets.getDetails().getClientSecret()))
-                            .build();
-                        credential.setRefreshToken(refreshToken);
-                        credential.refreshToken();
-                    }
-                }
-            }
-            
-            if (credential != null) {
-                System.out.println("✅ Token cargado desde variable de entorno");
-                return credential;
-            }
-        } catch (Exception e) {
-            System.out.println("❌ Error cargando token de variable de entorno: " + e.getMessage());
-            e.printStackTrace();
-            // Si falla, intentar con archivo local
-        }
-    }
-    
-        // Modo local - usar archivo físico
-        System.out.println("📁 Usando token local en: " + TOKENS_DIRECTORY_PATH);
-        FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH));
-        
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-            transport, jsonFactory, clientSecrets,
-            Collections.singletonList(SheetsScopes.SPREADSHEETS))
-            .setDataStoreFactory(dataStoreFactory)
-            .setAccessType("offline")
-            .build();
-        
-        return new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
-    }
-
     private Sheets getSheetsService() throws IOException, GeneralSecurityException {
-        Credential credential = authorize(); // ← USA el nuevo método
+        GoogleCredentials credentials = getCredentials();
+        
+        HttpRequestInitializer requestInitializer = new HttpCredentialsAdapter(credentials);
         
         return new Sheets.Builder(
             GoogleNetHttpTransport.newTrustedTransport(),
             JacksonFactory.getDefaultInstance(),
-            credential)
+            requestInitializer)
             .setApplicationName(APPLICATION_NAME)
             .build();
+    }
+
+    private GoogleCredentials getCredentials() throws IOException {
+        // Verificar si hay credenciales de servicio en variable de entorno (Railway)
+        String serviceAccountJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON");
+        
+        if (serviceAccountJson != null && !serviceAccountJson.isEmpty()) {
+            // Railway - usar cuenta de servicio desde variable
+            System.out.println("✅ Usando cuenta de servicio desde variable de entorno");
+            return GoogleCredentials.fromStream(
+                new ByteArrayInputStream(serviceAccountJson.getBytes()))
+                .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
+        } else {
+            // Local - usar archivo credentials.json
+            System.out.println("📁 Usando credenciales locales desde archivo");
+            InputStream in = GoogleSheetsService.class.getResourceAsStream("/credentials.json");
+            if (in == null) {
+                throw new FileNotFoundException("No se encontró credentials.json");
+            }
+            
+            return GoogleCredentials.fromStream(in)
+                .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
+        }
     }
 
     /**
@@ -321,7 +238,7 @@ public class GoogleSheetsService {
         deleteRequests.add(new Request().setDeleteDimension(
             new DeleteDimensionRequest()
                 .setRange(new DimensionRange()
-                    .setSheetId(sheetIdVentas)  // ← Usamos el ID dinámico
+                    .setSheetId(sheetIdVentas)
                     .setDimension("ROWS")
                     .setStartIndex(filaTotalExistente)
                     .setEndIndex(filaTotalExistente + 1))));
@@ -362,7 +279,6 @@ public class GoogleSheetsService {
         
         // 4. Calcular total de productos existentes
         double totalExistente = 0;
-        int totalProductosExistentes = 0;
         
         for (int i = nuevaFilaFecha + 2; i < finalProductos; i++) {
             List<Object> fila = valoresActualizados.get(i);
@@ -370,7 +286,6 @@ public class GoogleSheetsService {
                 String totalStr = fila.get(2).toString().replace("$", "");
                 try {
                     totalExistente += Double.parseDouble(totalStr);
-                    totalProductosExistentes++;
                 } catch (NumberFormatException e) {}
             }
         }
