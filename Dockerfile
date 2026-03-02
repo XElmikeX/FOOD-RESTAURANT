@@ -34,9 +34,13 @@ WORKDIR /app
 COPY --from=build /app/target/food-1.jar app.jar
 # "Tomar solo el JAR final del paso 6"
 
+RUN mkdir -p /app/tokens
+
 # 10. ETIQUETA: "Indicar cómo se sirve"
 EXPOSE 8083
 # "Este plato se sirve por el puerto 8080"
+
+ENV SPRING_PROFILES_ACTIVE=production
 
 # 11. INSTRUCCIONES: "Cómo consumirlo"
 ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8083} -jar app.jar"]

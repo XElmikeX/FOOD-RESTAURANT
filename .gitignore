@@ -1,50 +1,39 @@
-#Se puede agregar más para ignorar
-#Sirve para que cargue más rapido el build(cuando lo subes)
-
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-credentials.json
-service-account.json
-tokens/
+# Credenciales y secretos
 application-secrets.properties
+credentials.json
+*.cred
+tokens/
 *.key
 
-### VS Code ###
-.vscode/
-tokens/
-src/main/resources/credentials.json
-application-secrets.properties
-<<<<<<< HEAD
-=======
+# Archivos de entorno
 .env
->>>>>>> 345ce5085b3fcb5fed1e0562970c11a7063142fd
+.env.local
+.env.*.local
+
+# Railway y despliegue
+railway.json
+.railway/
+
+# Java/Maven
+target/
+*.class
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Logs
+*.log
+
+# No subir credenciales reales
 credentials.json
+!credentials.json  # Si quieres mantener el archivo vacío como template
+application-secrets.properties
+tokens/
