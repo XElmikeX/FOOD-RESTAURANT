@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Menú</title>
 
+    <link rel="icon" type="image/png" th:href="@{/Imagenes/logo.png}">
     <link rel="stylesheet" th:href="@{/Menu/Menu.css}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -14,10 +15,24 @@
             <h1 th:text="${titulo}"></h1>
         </header>
     </div>
-    <div class="ubi">
-        <div class="buscador">
-            <!--pendiente el buscador-->
-        </div>
+        <div class="ubi">
+            <div class="ubi">
+                <div class="buscador">
+                    <div class="search-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input 
+                            type="text" 
+                            id="buscadorMenu" 
+                            class="search-input" 
+                            placeholder="Buscar plato por nombre..."
+                            autocomplete="off"
+                        >
+                        <button type="button" id="clearSearch" class="clear-search">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
 
         <div class="Pedir">
             <button id="pedirBtn">Pedir</button>
@@ -76,5 +91,6 @@
 </body>
     <script th:src="@{/Menu/SumRes.js}"></script>
     <script th:src="@{/Menu/Personalizacion.js}"></script>
+    <script th:src="@{/Menu/Buscador.js}"></script>
 
 </html>
