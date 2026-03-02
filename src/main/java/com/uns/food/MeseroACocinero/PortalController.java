@@ -37,6 +37,9 @@ public class PortalController {
     @GetMapping("/Rol/Mozo")
     public String apartadoMozo(Model model){
         List<Mesas> Nmesas = mesasRepository.findAll();
+
+        Nmesas.sort(Comparator.comparingLong(Mesas::getId));
+        
         model.addAttribute("Nmesas", Nmesas);
         model.addAttribute("titulo", "Sistema de Pedidos - Mozo");
         return "Mozo";
