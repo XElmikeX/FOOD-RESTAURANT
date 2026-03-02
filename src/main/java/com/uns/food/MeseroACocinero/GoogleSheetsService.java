@@ -1,13 +1,19 @@
 package com.uns.food.MeseroACocinero;
 
+import com.google.api.client.auth.oauth2.BearerToken;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.BasicAuthentication;
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.store.DataStoreFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.api.client.util.store.MemoryDataStoreFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.*;
@@ -70,35 +76,85 @@ public class GoogleSheetsService {
             );
     }
 
-    private Sheets getSheetsService() throws IOException, GeneralSecurityException {
-        InputStream in = GoogleSheetsService.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
-        if (in == null) {
-            throw new FileNotFoundException("No se encontró el archivo: " + CREDENTIALS_FILE_PATH);
+    private Credential authorize() throws IOException, GeneralSecurityException {
+    GoogleClientSecrets clientSecrets = loadClientSecrets();
+    
+    // Verificar si hay token en variable de entorno (Railway)
+    String tokenBase64 = System.getenv("GOOGLE_CREDENTIAL_TOKEN");
+    
+    NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+    JacksonFactory jsonFactory = JacksonFactory.getDefaultInstance();
+    
+    if (tokenBase64 != null && !tokenBase64.isEmpty()) {
+        try {
+            // Railway - usar el token de la variable de entorno
+            byte[] tokenBytes = Base64.getDecoder().decode(tokenBase64);
+            
+            // Crear DataStoreFactory en memoria
+            DataStoreFactory dataStoreFactory = new MemoryDataStoreFactory();
+            
+            // Configurar el flujo de autorización
+            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                transport, jsonFactory, clientSecrets,
+                Collections.singletonList(SheetsScopes.SPREADSHEETS))
+                .setDataStoreFactory(dataStoreFactory)
+                .setAccessType("offline")
+                .build();
+            
+            // Cargar el credential desde los bytes del token
+            Credential credential = flow.loadCredential("user");
+            
+            // Si no se pudo cargar, crear uno nuevo con el refresh token
+            if (credential == null) {
+                // Parsear el token (asumiendo que es el StoredCredential file)
+                try (ByteArrayInputStream bais = new ByteArrayInputStream(tokenBytes)) {
+                    java.util.Properties props = new java.util.Properties();
+                    props.load(bais);
+                    
+                    String refreshToken = props.getProperty("refreshToken");
+                    if (refreshToken != null) {
+                        credential = new Credential.Builder(BearerToken.authorizationHeaderAccessMethod())
+                            .setTransport(transport)
+                            .setJsonFactory(jsonFactory)
+                            .setTokenServerUrl(new GenericUrl("https://oauth2.googleapis.com/token"))
+                            .setClientAuthentication(new BasicAuthentication(
+                                clientSecrets.getDetails().getClientId(),
+                                clientSecrets.getDetails().getClientSecret()))
+                            .build();
+                        credential.setRefreshToken(refreshToken);
+                        credential.refreshToken();
+                    }
+                }
+            }
+            
+            if (credential != null) {
+                System.out.println("✅ Token cargado desde variable de entorno");
+                return credential;
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Error cargando token de variable de entorno: " + e.getMessage());
+            e.printStackTrace();
+            // Si falla, intentar con archivo local
         }
-        
-        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(
-            JacksonFactory.getDefaultInstance(), 
-            new InputStreamReader(in)
-        );
-
-        List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
+    }
+    
+        // Modo local - usar archivo físico
+        System.out.println("📁 Usando token local en: " + TOKENS_DIRECTORY_PATH);
+        FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH));
         
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-            GoogleNetHttpTransport.newTrustedTransport(),
-            JacksonFactory.getDefaultInstance(),
-            clientSecrets,
-            scopes)
-            .setDataStoreFactory(new FileDataStoreFactory(new File(TOKENS_DIRECTORY_PATH)))
+            transport, jsonFactory, clientSecrets,
+            Collections.singletonList(SheetsScopes.SPREADSHEETS))
+            .setDataStoreFactory(dataStoreFactory)
             .setAccessType("offline")
             .build();
+        
+        return new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
+    }
 
-        LocalServerReceiver receiver = new LocalServerReceiver.Builder()
-            .setPort(8888)
-            .build();
-            
-        Credential credential = new AuthorizationCodeInstalledApp(flow, receiver)
-            .authorize("user");
-
+    private Sheets getSheetsService() throws IOException, GeneralSecurityException {
+        Credential credential = authorize(); // ← USA el nuevo método
+        
         return new Sheets.Builder(
             GoogleNetHttpTransport.newTrustedTransport(),
             JacksonFactory.getDefaultInstance(),
