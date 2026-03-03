@@ -53,7 +53,6 @@ public class PortalController {
         List<Foods> comida = foodsRepository.findAll();
         model.addAttribute("comida", comida);
         model.addAttribute("numero", numero);
-        model.addAttribute("titulo", "Sistema de Pedidos - Mozo");
         return "Menu";
     }
 

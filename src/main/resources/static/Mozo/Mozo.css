@@ -23,7 +23,7 @@ body {
     margin-bottom: 30px;
     padding: 20px;
     border-radius: 15px;
-    background: linear-gradient(135deg, #4a6fa5, #2c3e50);
+    background: linear-gradient(135deg, #4bd156, #11b811);
     color: white;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     position: relative;
@@ -37,7 +37,7 @@ body {
     left: 0;
     right: 0;
     height: 5px;
-    background: linear-gradient(90deg, #ff9a00, #ff5500);
+    background: linear-gradient(90deg, #b4b9b3, #92a397);
 }
 
 .header h1 {
@@ -50,9 +50,8 @@ body {
 }
 
 .header h1 i {
-    color: #ff9a00;
+    color: #ffffff;
 }
-
 
 /* Contenedor de cartas */
 .cards-container {
@@ -86,7 +85,7 @@ body {
     box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15);
     border-color: #4a6fa5;
     background: linear-gradient(135deg, #4a6fa5, #2c3e50);
-    border-color: #ff9a00;
+    border-color: #67da32;
     transition: all 0.8s ease;
 }
 
@@ -152,8 +151,160 @@ body {
 
 .mesas-activas-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 20px;
+}
+
+/* Responsive: en móvil, 2 columnas */
+@media (max-width: 768px) {
+    .mesas-activas-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .mesa-activa-card {
+        padding: 12px;
+    }
+    
+    .mesa-activa-header {
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+    }
+    
+    .mesa-id-grande {
+        width: 45px;
+        height: 45px;
+        min-width: 45px;
+        font-size: 1.5em;
+        margin-right: 8px;
+    }
+    
+    .mesa-activa-numero {
+        font-size: 1.5em;
+        width: 35px;
+        height: 35px;
+    }
+    
+    .mesa-activa-hora {
+        font-size: 0.7em;
+        padding: 3px 6px;
+    }
+    
+    .mesa-activa-pedidos {
+        max-height: 100px;
+        gap: 4px;
+    }
+    
+    .mesa-activa-pedido-item {
+        padding: 4px 6px;
+        font-size: 0.75em;
+    }
+    
+    .pedido-nombre {
+        gap: 2px;
+    }
+    
+    .pedido-cantidad {
+        padding: 1px 4px;
+        font-size: 0.7em;
+    }
+    
+    .estado-badge-mini {
+        font-size: 0.6em;
+        padding: 1px 4px;
+    }
+    
+    .mesa-activa-footer {
+        gap: 6px;
+        margin-top: 8px;
+        padding-top: 6px;
+    }
+    
+    .btn-ver-pedidos {
+        padding: 4px;
+        font-size: 0.7em;
+    }
+    
+    .btn-ver-pedidos i {
+        font-size: 0.8em;
+    }
+    
+    .mesa-stats-badge {
+        gap: 4px;
+        margin: 5px 0;
+        padding: 2px;
+    }
+    
+    .badge-proceso, .badge-listo {
+        padding: 2px 6px;
+        font-size: 0.6em;
+    }
+    
+    .mas-pedidos {
+        font-size: 0.65em;
+    }
+    
+    .hora-pedido {
+        font-size: 0.65em;
+    }
+
+    .cards-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .card {
+        padding: 15px 10px;
+    }
+    
+    .card-number {
+        font-size: 2.5rem;
+    }
+    
+    .card-label {
+        font-size: 1rem;
+    }
+}
+
+/* Ajuste para pantallas muy pequeñas */
+@media (max-width: 480px) {
+    .mesas-activas-container {
+        gap: 8px;
+    }
+    
+    .mesa-activa-card {
+        padding: 8px;
+    }
+    
+    .mesa-id-grande {
+        width: 35px;
+        height: 35px;
+        min-width: 35px;
+        font-size: 1.2em;
+        margin-right: 5px;
+    }
+    
+    .mesa-activa-numero {
+        width: 28px;
+        height: 28px;
+        font-size: 1.2em;
+    }
+
+    .cards-container {
+        gap: 8px;
+    }
+    
+    .card {
+        padding: 12px 8px;
+    }
+    
+    .card-number {
+        font-size: 2rem;
+    }
+    
+    .card-label {
+        font-size: 0.9rem;
+    }
 }
 
 .mesa-activa-card {
@@ -266,7 +417,7 @@ body {
 }
 
 .mesa-activa-pedido-item.estado-proceso {
-    border-left-color: #f39c12;
+    border-left-color: #54d335;
 }
 
 .mesa-activa-pedido-item.estado-listo {
@@ -583,7 +734,7 @@ body {
     background: rgba(255, 255, 255, 0.2);
     width: 70px;
     height: 70px;
-    min-width: 70px; /* Evita que se achique */
+    min-width: 70px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -594,11 +745,11 @@ body {
     backdrop-filter: blur(5px);
     margin-right: 15px;
     transition: all 0.3s ease;
-    line-height: 1; /* Asegura que el texto no se desplace */
-    aspect-ratio: 1; /* Fuerza la relación de aspecto 1:1 */
-    flex-shrink: 0; /* Evita que se encoja */
-    box-sizing: border-box; /* Incluye el padding y border en el tamaño */
-    padding: 0; /* Sin padding interno */
+    line-height: 1;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 0;
 }
 
 /* Para asegurar que el número esté perfectamente centrado */

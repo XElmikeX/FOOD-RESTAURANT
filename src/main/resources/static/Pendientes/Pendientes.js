@@ -1,6 +1,3 @@
-// Pendientes.js
-
-// Clave para localStorage
 const STORAGE_KEY = 'estados_mesas_cocina';
 
 document.addEventListener('DOMContentLoaded', function() {
