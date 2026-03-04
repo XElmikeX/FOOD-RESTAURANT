@@ -4,6 +4,23 @@ let peticionesPendientes = new Map();
 // 🔥 NUEVO: Conjunto para trackear pedidos completados en esta sesión
 let pedidosCompletados = new Set();
 
+// 🔥 NUEVO: Escuchar también el evento personalizado
+window.addEventListener('pedidoCompletadoLocal', function(e) {
+    console.log('📡 Evento pedidoCompletadoLocal recibido en Pendientes.js:', e.detail);
+    const { pedidoId, mesaId } = e.detail;
+    
+    const mesaActual = obtenerMesaIdNumerico();
+    if (mesaActual && mesaActual == mesaId) {
+        pedidosCompletados.add(pedidoId);
+        
+        const card = document.querySelector(`.pedido-card[data-pedido-id="${pedidoId}"]`);
+        if (card) {
+            card.remove();
+            verificarPedidosRestantes();
+        }
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Pendientes.js cargado - Con UI inmediata y polling');
     
@@ -31,7 +48,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Verificar si hay peticiones en curso
             if (peticionesPendientes.has(pedidoId)) {
                 console.log(`⏳ Ya hay una petición para pedido ${pedidoId}`);
-                mostrarNotificacion('Procesando...', 'info');
                 return;
             }
             
@@ -187,14 +203,12 @@ function actualizarEstadoPedido(pedidoId, nuevoEstado, card) {
             
         } else {
             console.error('❌ Error en servidor');
-            mostrarNotificacion('❌ Error al actualizar', 'error');
             // Revertir UI (opcional)
             setTimeout(() => cargarEstadosIniciales(), 1000);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        mostrarNotificacion('❌ Error de conexión', 'error');
     })
     .finally(() => {
         peticionesPendientes.delete(pedidoId);
@@ -234,54 +248,6 @@ function obtenerMesaIdNumerico() {
         return mesaIdElement.textContent.replace('Mesa: ', '').trim();
     }
     return null;
-}
-
-function mostrarNotificacion(mensaje, tipo) {
-    const notificacionesPrevias = document.querySelectorAll('.notificacion-temp');
-    notificacionesPrevias.forEach(n => n.remove());
-    
-    const notificacion = document.createElement('div');
-    notificacion.className = `notificacion-temp ${tipo}`;
-    notificacion.innerHTML = mensaje;
-    
-    let colorFondo;
-    switch(tipo) {
-        case 'success':
-            colorFondo = 'linear-gradient(135deg, #27ae60, #2ecc71)';
-            break;
-        case 'error':
-            colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
-            break;
-        case 'info':
-            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
-            break;
-        default:
-            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
-    }
-    
-    notificacion.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 25px;
-        border-radius: 10px;
-        color: white;
-        font-weight: 500;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        z-index: 9999;
-        animation: slideIn 0.3s ease;
-        background: ${colorFondo};
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    `;
-    
-    document.body.appendChild(notificacion);
-    
-    setTimeout(() => {
-        notificacion.style.animation = 'fadeOut 0.3s ease';
-        setTimeout(() => notificacion.remove(), 300);
-    }, 3000);
 }
 
 // 🔥 MODIFICADO: Escuchar cambios de localStorage
@@ -340,8 +306,6 @@ window.addEventListener('storage', function(e) {
                             verificarPedidosRestantes();
                         }
                     }, 300);
-                    
-                    mostrarNotificacion('📱 Pedido completado en otro dispositivo', 'info');
                 }
             }
         } catch (error) {

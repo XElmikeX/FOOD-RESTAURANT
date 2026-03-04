@@ -1,5 +1,5 @@
-// envioComplet.js - VERSIÓN MEJORADA CON SINCRONIZACIÓN ENTRE DISPOSITIVOS
-console.log('🚀 envioComplet.js CARGADO - Versión con sincronización');
+// envioComplet.js - VERSIÓN MEJORADA CON SINCRONIZACIÓN ROBUSTA
+console.log('🚀 envioComplet.js CARGADO - Versión con sincronización robusta');
 
 // Esperar a que el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', function() {
@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Verificar pedidos completados al cargar la página
     verificarPedidosCompletados();
+    
+    // 🔥 NUEVO: Verificar periódicamente si hay pedidos que deberían desaparecer
+    setInterval(verificarPedidosCompletados, 2000);
 });
 
 // Función para manejar el click
@@ -79,8 +82,26 @@ function manejarClickCompletar(event) {
         if (data.success) {
             console.log('✅ Pedido completado con éxito');
             
-            // 🔥 NUEVO: Guardar en localStorage para sincronizar con otros dispositivos
-            guardarPedidoCompletado(pedidoId, data.mesaId);
+            // 🔥 MEJORADO: Guardar en localStorage con timestamp ÚNICO
+            const timestamp = Date.now();
+            const completadoData = {
+                pedidoId: pedidoId,
+                mesaId: data.mesaId,
+                timestamp: timestamp,
+                action: 'completado'
+            };
+            
+            console.log('💾 Guardando pedido completado en localStorage:', completadoData);
+            
+            // Guardar en localStorage para otras pestañas/dispositivos
+            localStorage.setItem('pedido_completado', JSON.stringify(completadoData));
+            
+            // También guardar en un historial persistente
+            guardarEnHistorialCompletados(pedidoId, data.mesaId, timestamp);
+            
+            // 🔥 FORZAR la sincronización inmediata en el MISMO dispositivo
+            // (por si acaso el evento storage no se dispara)
+            forzarSincronizacionLocal(pedidoId, data.mesaId);
             
             // Animar y eliminar la tarjeta
             eliminarTarjetaConAnimacion(card, pedidoId);
@@ -95,56 +116,63 @@ function manejarClickCompletar(event) {
         // Restaurar botón
         boton.disabled = false;
         boton.innerHTML = textoOriginal;
-        
-        mostrarNotificacion('❌ Error al completar pedido', 'error');
     });
 }
 
-// 🔥 NUEVA FUNCIÓN: Guardar pedido completado en localStorage
-function guardarPedidoCompletado(pedidoId, mesaId) {
-    // Obtener la mesa actual
-    const mesaActual = obtenerMesaIdNumerico();
+// 🔥 NUEVA FUNCIÓN: Forzar sincronización local
+function forzarSincronizacionLocal(pedidoId, mesaId) {
+    console.log('🔄 Forzando sincronización local para pedido:', pedidoId);
     
-    const completadoData = {
-        pedidoId: pedidoId,
-        mesaId: mesaActual || mesaId,
-        timestamp: Date.now()
-    };
+    // Disparar evento personalizado
+    const evento = new CustomEvent('pedidoCompletadoLocal', {
+        detail: { pedidoId: pedidoId, mesaId: mesaId }
+    });
+    window.dispatchEvent(evento);
     
-    console.log('💾 Guardando pedido completado en localStorage:', completadoData);
-    
-    // Guardar en localStorage para otras pestañas/dispositivos
-    localStorage.setItem('pedido_completado', JSON.stringify(completadoData));
-    
-    // También guardar en un historial para verificación al cargar
-    guardarEnHistorialCompletados(pedidoId, mesaActual || mesaId);
-    
-    // Limpiar después de 3 segundos
+    // Verificar inmediatamente
     setTimeout(() => {
-        localStorage.removeItem('pedido_completado');
-    }, 3000);
+        verificarYEliminarPedido(pedidoId, mesaId);
+    }, 100);
 }
 
-// 🔥 NUEVA FUNCIÓN: Guardar en historial de completados
-function guardarEnHistorialCompletados(pedidoId, mesaId) {
+// 🔥 NUEVA FUNCIÓN: Verificar y eliminar pedido específico
+function verificarYEliminarPedido(pedidoId, mesaId) {
+    const mesaActual = obtenerMesaIdNumerico();
+    if (mesaActual != mesaId) return;
+    
+    const card = document.querySelector(`.pedido-card[data-pedido-id="${pedidoId}"]`);
+    if (card) {
+        console.log(`🗑️ Eliminando pedido ${pedidoId} por verificación forzada`);
+        eliminarTarjetaSinFetch(card, pedidoId);
+    }
+}
+
+// 🔥 NUEVA FUNCIÓN: Guardar en historial de completados (persistente)
+function guardarEnHistorialCompletados(pedidoId, mesaId, timestamp) {
     const HISTORIAL_KEY = 'pedidos_completados';
     let historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
     
-    // Agregar el nuevo pedido completado
-    historial.push({
-        pedidoId: pedidoId,
-        mesaId: mesaId,
-        timestamp: Date.now()
-    });
+    // Verificar si ya existe para evitar duplicados
+    const existe = historial.some(item => item.pedidoId == pedidoId && item.mesaId == mesaId);
     
-    // Limpiar historial antiguo (mayor a 1 minuto)
-    const ahora = Date.now();
-    historial = historial.filter(item => (ahora - item.timestamp) < 60000); // 1 minuto
-    
-    localStorage.setItem(HISTORIAL_KEY, JSON.stringify(historial));
+    if (!existe) {
+        // Agregar el nuevo pedido completado
+        historial.push({
+            pedidoId: pedidoId,
+            mesaId: mesaId,
+            timestamp: timestamp || Date.now()
+        });
+        
+        // Limpiar historial antiguo (mayor a 5 minutos)
+        const ahora = Date.now();
+        historial = historial.filter(item => (ahora - item.timestamp) < 300000); // 5 minutos
+        
+        localStorage.setItem(HISTORIAL_KEY, JSON.stringify(historial));
+        console.log('💾 Historial actualizado:', historial);
+    }
 }
 
-// 🔥 NUEVA FUNCIÓN: Verificar pedidos completados al cargar
+// 🔥 MODIFICADA: Verificar pedidos completados al cargar
 function verificarPedidosCompletados() {
     const HISTORIAL_KEY = 'pedidos_completados';
     const historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
@@ -156,14 +184,20 @@ function verificarPedidosCompletados() {
     
     // Filtrar pedidos de esta mesa
     const pedidosDeEstaMesa = historial.filter(item => item.mesaId == mesaActual);
+    let eliminados = 0;
     
     pedidosDeEstaMesa.forEach(item => {
         const card = document.querySelector(`.pedido-card[data-pedido-id="${item.pedidoId}"]`);
         if (card) {
             console.log(`🗑️ Eliminando pedido ${item.pedidoId} desde historial`);
             eliminarTarjetaSinFetch(card, item.pedidoId);
+            eliminados++;
         }
     });
+    
+    if (eliminados > 0) {
+        console.log(`✅ Eliminados ${eliminados} pedidos del historial`);
+    }
 }
 
 // 🔥 NUEVA FUNCIÓN: Eliminar tarjeta sin hacer fetch (para sincronización)
@@ -183,7 +217,7 @@ function eliminarTarjetaSinFetch(card, pedidoId) {
     }, 300);
 }
 
-// 🔥 NUEVA FUNCIÓN: Extraer la lógica de eliminación de tarjeta
+// 🔥 NUEVA FUNCIÓN: Eliminar tarjeta con animación
 function eliminarTarjetaConAnimacion(card, pedidoId) {
     // Animación de eliminación
     card.style.transition = 'all 0.3s ease';
@@ -247,102 +281,62 @@ function obtenerMesaIdNumerico() {
     return null;
 }
 
-// Función para mostrar notificaciones
-function mostrarNotificacion(mensaje, tipo) {
-    const notificacion = document.createElement('div');
-    notificacion.className = `notificacion-temp ${tipo}`;
-    notificacion.innerHTML = mensaje;
-    
-    let colorFondo;
-    switch(tipo) {
-        case 'success':
-            colorFondo = 'linear-gradient(135deg, #27ae60, #2ecc71)';
-            break;
-        case 'error':
-            colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
-            break;
-        default:
-            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
-    }
-    
-    notificacion.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 25px;
-        border-radius: 10px;
-        color: white;
-        font-weight: 500;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        z-index: 9999;
-        animation: slideIn 0.3s ease;
-        background: ${colorFondo};
-    `;
-    
-    document.body.appendChild(notificacion);
-    
-    setTimeout(() => {
-        notificacion.style.animation = 'fadeOut 0.3s ease';
-        setTimeout(() => notificacion.remove(), 300);
-    }, 3000);
-}
-
 // ===== ESCUCHAR CAMBIOS DE OTROS DISPOSITIVOS =====
 
-// 🔥 NUEVO: Escuchar eventos de localStorage (para sincronización)
+// 🔥 MEJORADO: Escuchar eventos de localStorage
 window.addEventListener('storage', function(e) {
+    console.log('📡 Evento storage detectado:', e.key, e.newValue);
+    
     // Escuchar cuando se completa un pedido
     if (e.key === 'pedido_completado' && e.newValue) {
         try {
             const data = JSON.parse(e.newValue);
             console.log('📡 Pedido completado detectado en otro dispositivo:', data);
             
-            // Obtener mesa actual
-            const mesaActual = obtenerMesaIdNumerico();
+            // Procesar inmediatamente
+            procesarPedidoCompletado(data);
             
-            // Solo procesar si es de la misma mesa
-            if (mesaActual && data.mesaId == mesaActual) {
-                const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
-                
-                if (card) {
-                    console.log(`🗑️ Eliminando pedido ${data.pedidoId} por solicitud de otro dispositivo`);
-                    
-                    // Agregar un pequeño retraso para evitar conflictos
-                    setTimeout(() => {
-                        eliminarTarjetaSinFetch(card, data.pedidoId);
-                        
-                        // Mostrar notificación
-                        mostrarNotificacion('📱 Pedido completado en otro dispositivo', 'info');
-                    }, 100);
-                }
-            }
         } catch (error) {
             console.error('Error procesando pedido completado:', error);
         }
     }
+});
+
+// 🔥 NUEVO: Escuchar evento personalizado
+window.addEventListener('pedidoCompletadoLocal', function(e) {
+    console.log('📡 Evento local detectado:', e.detail);
+    procesarPedidoCompletado(e.detail);
+});
+
+// 🔥 NUEVA FUNCIÓN: Procesar pedido completado
+function procesarPedidoCompletado(data) {
+    // Obtener mesa actual
+    const mesaActual = obtenerMesaIdNumerico();
     
-    // 🔥 También escuchar cambios de estado (para mantener consistencia)
-    if (e.key === 'ultimo_cambio' && e.newValue) {
-        try {
-            const data = JSON.parse(e.newValue);
-            const mesaActual = obtenerMesaIdNumerico();
+    // Solo procesar si es de la misma mesa
+    if (mesaActual && data.mesaId == mesaActual) {
+        console.log(`🔍 Buscando pedido ${data.pedidoId} en mesa ${mesaActual}`);
+        
+        const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+        
+        if (card) {
+            console.log(`🗑️ Eliminando pedido ${data.pedidoId} por solicitud externa`);
             
-            if (mesaActual && data.mesaId == mesaActual) {
-                const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
-                
-                // Si el estado cambió a "listo", aseguramos que el botón de confirmación aparezca
-                if (card && data.estado === 'listo') {
-                    const confir = card.querySelector(".confirmacion-container");
-                    if (confir) {
-                        confir.classList.add('aparicion');
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error procesando cambio de estado:', error);
+            // Agregar al historial si no existe
+            guardarEnHistorialCompletados(data.pedidoId, data.mesaId, data.timestamp);
+            
+            // Eliminar con animación
+            setTimeout(() => {
+                eliminarTarjetaSinFetch(card, data.pedidoId);
+            }, 100);
+        } else {
+            console.log(`⚠️ Pedido ${data.pedidoId} no encontrado en el DOM, quizás ya fue eliminado`);
+            
+            // Aún así, guardar en historial para prevenir reaparición
+            guardarEnHistorialCompletados(data.pedidoId, data.mesaActual, data.timestamp);
         }
     }
-});
+}
 
 // También observar cambios en el DOM
 const observer = new MutationObserver(function(mutations) {
@@ -366,9 +360,6 @@ observer.observe(document.body, {
     childList: true,
     subtree: true
 });
-
-// Verificar historial periódicamente (por si acaso)
-setInterval(verificarPedidosCompletados, 5000);
 
 // Agregar estilos para notificaciones si no existen
 if (!document.querySelector('#estilos-sincronizacion')) {
