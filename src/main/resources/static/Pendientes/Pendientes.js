@@ -1,8 +1,17 @@
+// Variables para control de concurrencia
+let peticionesPendientes = new Map();
+
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Pendientes.js cargado - Versión BD');
+    console.log('Pendientes.js cargado - Con UI inmediata y polling');
     
-    // Cargar estados iniciales desde la BD
+    // Cargar estados iniciales
     cargarEstadosIniciales();
+    
+    // POLLING: Actualizar cada 3 segundos (para que otros dispositivos vean cambios)
+    setInterval(() => {
+        console.log('🔄 Actualizando estados desde servidor (polling)...');
+        cargarEstadosIniciales();
+    }, 3000);
     
     // Agregar evento a todos los botones de estado
     document.querySelectorAll('.btn-estado').forEach(btn => {
@@ -13,6 +22,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const card = this.closest('.pedido-card');
             const pedidoId = card.dataset.pedidoId;
             
+            // Verificar si hay peticiones en curso
+            if (peticionesPendientes.has(pedidoId)) {
+                console.log(`⏳ Ya hay una petición para pedido ${pedidoId}`);
+                mostrarNotificacion('Procesando...', 'info');
+                return;
+            }
+            
             let nuevoEstado = '';
             if (this.classList.contains('btn-pendiente')) {
                 nuevoEstado = 'pendiente';
@@ -22,12 +38,102 @@ document.addEventListener('DOMContentLoaded', function() {
                 nuevoEstado = 'listo';
             }
             
-            // Actualizar estado en la BD
-            actualizarEstadoPedido(pedidoId, nuevoEstado, card, this);
+            // 🔥 ACTUALIZACIÓN INMEDIATA EN DISPOSITIVO 1
+            aplicarEstadoUI(card, nuevoEstado);
+            
+            // Si es "listo", mostrar el botón de confirmación INMEDIATAMENTE
+            const confir = card.querySelector(".confirmacion-container");
+            if (nuevoEstado === 'listo') {
+                confir.classList.add('aparicion');
+                confir.style.animation = 'fadeIn 0.3s ease';
+            } else {
+                confir.classList.remove('aparicion');
+            }
+            
+            // Feedback visual inmediato
+            mostrarFeedbackVisual(card, nuevoEstado);
+            
+            // Actualizar estado en la BD (en segundo plano)
+            actualizarEstadoPedido(pedidoId, nuevoEstado, card);
         });
     });
 });
 
+// 🔥 Feedback visual inmediato
+function mostrarFeedbackVisual(card, nuevoEstado) {
+    card.style.transition = 'all 0.2s ease';
+    card.style.transform = 'scale(1.02)';
+    card.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
+    
+    setTimeout(() => {
+        card.style.transform = 'scale(1)';
+    }, 200);
+    
+    // Mensaje flotante
+    const mensaje = document.createElement('div');
+    mensaje.className = 'feedback-flotante';
+    mensaje.textContent = nuevoEstado === 'listo' ? '✓ Listo' : 
+                         nuevoEstado === 'proceso' ? '⚙ Proceso' : '⏱ Pendiente';
+    mensaje.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: ${nuevoEstado === 'listo' ? '#27ae60' : nuevoEstado === 'proceso' ? '#f39c12' : '#e74c3c'};
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        z-index: 10;
+        animation: fadeInOut 2s ease forwards;
+    `;
+    
+    card.style.position = 'relative';
+    card.appendChild(mensaje);
+    
+    setTimeout(() => {
+        if (mensaje.parentNode) {
+            mensaje.remove();
+        }
+    }, 2000);
+}
+
+// 🔥 Aplicar cambios visuales inmediatos
+function aplicarEstadoUI(card, estado) {
+    if (!card || !document.body.contains(card)) return;
+    
+    const header = card.querySelector(".card-header");
+    const botonPendiente = card.querySelector('.btn-pendiente');
+    const botonProceso = card.querySelector('.btn-proceso');
+    const botonListo = card.querySelector('.btn-listo');
+    
+    // Remover clases actuales
+    card.classList.remove('pendiente', 'proceso', 'listo');
+    if (header) {
+        header.classList.remove('pend', 'proce', 'list');
+    }
+    
+    // Remover activo de todos los botones
+    [botonPendiente, botonProceso, botonListo].forEach(btn => {
+        if (btn) btn.classList.remove('activo');
+    });
+    
+    // Aplicar nuevo estado
+    card.classList.add(estado);
+    
+    if (estado === 'pendiente') {
+        if (header) header.classList.add('pend');
+        if (botonPendiente) botonPendiente.classList.add('activo');
+    } else if (estado === 'proceso') {
+        if (header) header.classList.add('proce');
+        if (botonProceso) botonProceso.classList.add('activo');
+    } else if (estado === 'listo') {
+        if (header) header.classList.add('list');
+        if (botonListo) botonListo.classList.add('activo');
+    }
+}
+
+// 🔥 MODIFICADO: Ahora aplica estados pero respeta cambios recientes
 function cargarEstadosIniciales() {
     const mesaId = obtenerMesaIdNumerico();
     if (!mesaId) return;
@@ -36,12 +142,30 @@ function cargarEstadosIniciales() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('Estados cargados:', data);
+                console.log('📦 Estados desde servidor:', data.pedidos.length);
                 
                 data.pedidos.forEach(pedidoInfo => {
                     const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${pedidoInfo.id}"]`);
                     if (pedidoCard) {
-                        aplicarEstadoAPedido(pedidoCard, pedidoInfo.estado);
+                        // 🔥 IMPORTANTE: Verificar si hubo interacción reciente
+                        const ultimaInteraccion = pedidoCard.dataset.ultimaInteraccion;
+                        const ahora = Date.now();
+                        
+                        // Si no hubo interacción en los últimos 2 segundos, aplicar estado
+                        if (!ultimaInteraccion || (ahora - parseInt(ultimaInteraccion)) > 2000) {
+                            console.log(`📋 Aplicando estado ${pedidoInfo.estado} a pedido ${pedidoInfo.id}`);
+                            aplicarEstadoUI(pedidoCard, pedidoInfo.estado);
+                            
+                            // Actualizar botón de confirmación según estado
+                            const confir = pedidoCard.querySelector(".confirmacion-container");
+                            if (pedidoInfo.estado === 'listo') {
+                                confir.classList.add('aparicion');
+                            } else {
+                                confir.classList.remove('aparicion');
+                            }
+                        } else {
+                            console.log(`⏭️ Ignorando actualización para pedido ${pedidoInfo.id} - interacción reciente`);
+                        }
                     }
                 });
             }
@@ -49,11 +173,14 @@ function cargarEstadosIniciales() {
         .catch(error => console.error('Error cargando estados:', error));
 }
 
-function actualizarEstadoPedido(pedidoId, nuevoEstado, card, botonClickeado) {
-    // Mostrar indicador de carga
-    const originalText = botonClickeado.innerHTML;
-    botonClickeado.disabled = true;
-    botonClickeado.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+function actualizarEstadoPedido(pedidoId, nuevoEstado, card) {
+    // Marcar petición en curso
+    peticionesPendientes.set(pedidoId, true);
+    
+    // 🔥 Marcar momento de interacción para evitar sobrescritura
+    if (card) {
+        card.dataset.ultimaInteraccion = Date.now().toString();
+    }
     
     fetch(`/api/pedidos/actualizar-estado/${pedidoId}`, {
         method: 'POST',
@@ -65,23 +192,12 @@ function actualizarEstadoPedido(pedidoId, nuevoEstado, card, botonClickeado) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Estado actualizado:', data);
+            console.log('✅ Estado confirmado en servidor:', data);
             
-            // Aplicar el nuevo estado visualmente
-            aplicarEstadoAPedido(card, nuevoEstado);
+            // 🔥 IMPORTANTE: Guardar en localStorage para sincronización básica
+            guardarEstadoEnStorage(pedidoId, nuevoEstado, data.mesaId);
             
-            // Mostrar contenedor de confirmación si es "listo"
-            const confir = card.querySelector(".confirmacion-container");
-            if (nuevoEstado === 'listo') {
-                confir.classList.add('aparicion');
-            } else {
-                confir.classList.remove('aparicion');
-            }
-            
-            // Notificación de éxito
-            mostrarNotificacion(`✅ Pedido marcado como ${nuevoEstado}`, 'success');
-            
-            // 🔥 IMPORTANTE: Disparar evento para actualizar el MOZO
+            // Disparar evento para actualizar el MOZO (solo en esta pestaña)
             window.dispatchEvent(new CustomEvent('pedidoActualizado', { 
                 detail: { 
                     mesaId: data.mesaId,
@@ -91,7 +207,10 @@ function actualizarEstadoPedido(pedidoId, nuevoEstado, card, botonClickeado) {
             }));
             
         } else {
+            console.error('❌ Error en servidor');
             mostrarNotificacion('❌ Error al actualizar', 'error');
+            // Revertir UI (opcional)
+            setTimeout(() => cargarEstadosIniciales(), 1000);
         }
     })
     .catch(error => {
@@ -99,39 +218,35 @@ function actualizarEstadoPedido(pedidoId, nuevoEstado, card, botonClickeado) {
         mostrarNotificacion('❌ Error de conexión', 'error');
     })
     .finally(() => {
-        // Restaurar botón
-        botonClickeado.disabled = false;
-        botonClickeado.innerHTML = originalText;
+        peticionesPendientes.delete(pedidoId);
     });
 }
 
-function aplicarEstadoAPedido(card, estado) {
-    const header = card.querySelector(".card-header");
-    const confir = card.querySelector(".confirmacion-container");
+// 🔥 NUEVO: Guardar en localStorage para sincronización entre pestañas
+function guardarEstadoEnStorage(pedidoId, estado, mesaId) {
+    const STORAGE_KEY = 'ultimos_estados';
+    let estados = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
     
-    // Remover clases actuales
-    card.classList.remove('pendiente', 'proceso', 'listo');
-    header.classList.remove('pend', 'proce', 'list');
+    estados[pedidoId] = {
+        estado: estado,
+        mesaId: mesaId,
+        timestamp: Date.now()
+    };
     
-    // Remover activo de todos los botones
-    card.querySelectorAll('.btn-estado').forEach(btn => {
-        btn.classList.remove('activo');
-    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(estados));
     
-    // Aplicar nuevo estado
-    card.classList.add(estado);
+    // Disparar evento para otras pestañas de esta misma mesa
+    localStorage.setItem('ultimo_cambio', JSON.stringify({
+        pedidoId: pedidoId,
+        estado: estado,
+        mesaId: mesaId,
+        timestamp: Date.now()
+    }));
     
-    if (estado === 'pendiente') {
-        header.classList.add('pend');
-        card.querySelector('.btn-pendiente').classList.add('activo');
-    } else if (estado === 'proceso') {
-        header.classList.add('proce');
-        card.querySelector('.btn-proceso').classList.add('activo');
-    } else if (estado === 'listo') {
-        header.classList.add('list');
-        card.querySelector('.btn-listo').classList.add('activo');
-        confir.classList.add('aparicion');
-    }
+    // Limpiar después de 2 segundos
+    setTimeout(() => {
+        localStorage.removeItem('ultimo_cambio');
+    }, 2000);
 }
 
 function obtenerMesaIdNumerico() {
@@ -143,6 +258,9 @@ function obtenerMesaIdNumerico() {
 }
 
 function mostrarNotificacion(mensaje, tipo) {
+    const notificacionesPrevias = document.querySelectorAll('.notificacion-temp');
+    notificacionesPrevias.forEach(n => n.remove());
+    
     const notificacion = document.createElement('div');
     notificacion.className = `notificacion-temp ${tipo}`;
     notificacion.innerHTML = mensaje;
@@ -154,6 +272,9 @@ function mostrarNotificacion(mensaje, tipo) {
             break;
         case 'error':
             colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            break;
+        case 'info':
+            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
             break;
         default:
             colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
@@ -176,10 +297,6 @@ function mostrarNotificacion(mensaje, tipo) {
         gap: 10px;
     `;
     
-    const icono = document.createElement('i');
-    icono.className = `fas ${tipo === 'success' ? 'fa-check-circle' : tipo === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}`;
-    notificacion.insertBefore(icono, notificacion.firstChild);
-    
     document.body.appendChild(notificacion);
     
     setTimeout(() => {
@@ -187,3 +304,63 @@ function mostrarNotificacion(mensaje, tipo) {
         setTimeout(() => notificacion.remove(), 300);
     }, 3000);
 }
+
+// 🔥 NUEVO: Escuchar cambios de localStorage (para otras pestañas)
+window.addEventListener('storage', function(e) {
+    if (e.key === 'ultimo_cambio' && e.newValue) {
+        try {
+            const data = JSON.parse(e.newValue);
+            console.log('📡 Cambio detectado en otra pestaña:', data);
+            
+            // Solo procesar si es de la misma mesa que estamos viendo
+            const mesaActual = obtenerMesaIdNumerico();
+            if (mesaActual && data.mesaId == mesaActual) {
+                const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                if (pedidoCard) {
+                    // Verificar que no haya interacción reciente
+                    const ultimaInteraccion = pedidoCard.dataset.ultimaInteraccion;
+                    const ahora = Date.now();
+                    
+                    if (!ultimaInteraccion || (ahora - parseInt(ultimaInteraccion)) > 2000) {
+                        console.log(`🔄 Aplicando cambio desde otra pestaña: ${data.estado}`);
+                        aplicarEstadoUI(pedidoCard, data.estado);
+                        
+                        const confir = pedidoCard.querySelector(".confirmacion-container");
+                        if (data.estado === 'listo') {
+                            confir.classList.add('aparicion');
+                        } else {
+                            confir.classList.remove('aparicion');
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error procesando cambio de localStorage:', error);
+        }
+    }
+});
+
+// Agregar estilos
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(-10px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-10px); }
+    }
+    
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+        to { opacity: 0; transform: translateY(-10px); }
+    }
+    
+    .feedback-flotante {
+        pointer-events: none;
+    }
+`;
+document.head.appendChild(style);

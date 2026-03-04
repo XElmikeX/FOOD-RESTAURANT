@@ -46,32 +46,33 @@ public class EstadoPedidoController {
             Pedidos pedido = pedidoOpt.get();
             Long mesaId = pedido.getMesa().getId();
             
-            // 🔥 IMPORTANTE: Buscar TODOS los pedidos de esta mesa
+            // 🔥 Verificar si es la primera interacción en esta mesa
             List<Pedidos> todosLosPedidosMesa = pedidosRepository.findByMesaId(mesaId);
+            boolean primerInteraccion = true;
             
-            boolean primerInteraccion = false;
-            
-            // Verificar si es la primera interacción en esta mesa
             for (Pedidos p : todosLosPedidosMesa) {
-                if (p.getCocineroInteractuo()) {
-                    primerInteraccion = true;
+                if (p.getCocineroInteractuo() && !p.getId().equals(pedidoId)) {
+                    primerInteraccion = false;
                     break;
                 }
             }
             
             // Si es la primera interacción, marcar TODOS los pedidos de la mesa como interactuados
-            if (!primerInteraccion) {
+            if (primerInteraccion && !pedido.getCocineroInteractuo()) {
                 System.out.println("🔥 Primera interacción en mesa " + mesaId + 
                                 " - Marcando TODOS los " + todosLosPedidosMesa.size() + 
                                 " pedidos como interactuados");
                 
                 for (Pedidos p : todosLosPedidosMesa) {
-                    p.setCocineroInteractuo(true);
-                    pedidosRepository.save(p);
+                    if (!p.getCocineroInteractuo()) {
+                        p.setCocineroInteractuo(true);
+                        pedidosRepository.save(p);
+                    }
                 }
             }
             
             // Actualizar el estado del pedido actual
+            pedido.setCocineroInteractuo(true);
             pedido.setEstado(nuevoEstado);
             
             if ("listo".equals(nuevoEstado)) {
@@ -80,13 +81,10 @@ public class EstadoPedidoController {
             
             pedidosRepository.save(pedido);
             
-            // Obtener todos los pedidos de la mesa para el resumen
-            List<Pedidos> pedidosMesa = pedidosRepository.findByMesaId(mesaId);
-            
             response.put("success", true);
             response.put("message", "Estado actualizado correctamente");
             response.put("mesaId", mesaId);
-            response.put("totalPedidos", pedidosMesa.size());
+            response.put("totalPedidos", todosLosPedidosMesa.size());
             
             return ResponseEntity.ok(response);
             
@@ -259,6 +257,30 @@ public class EstadoPedidoController {
             response.put("numeroMesa", numeroMesa);
             response.put("pedidos", pedidosInfo);
             response.put("totalPedidos", pedidosMesa.size()); // ✅ Esto ahora será el número correcto
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    @PostMapping("/mesa-facturada/{mesaId}")
+    public ResponseEntity<Map<String, Object>> notificarMesaFacturada(@PathVariable("mesaId") Long mesaId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            System.out.println("💰 Mesa " + mesaId + " facturada - notificando a clientes");
+            
+            // Verificar que la mesa ya no tenga pedidos
+            List<Pedidos> pedidosRestantes = pedidosRepository.findByMesaId(mesaId);
+            
+            response.put("success", true);
+            response.put("message", "Mesa facturada correctamente");
+            response.put("mesaId", mesaId);
+            response.put("pedidosEliminados", pedidosRestantes.isEmpty());
             
             return ResponseEntity.ok(response);
             

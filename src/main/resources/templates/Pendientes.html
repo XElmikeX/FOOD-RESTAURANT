@@ -30,13 +30,6 @@
             </a>
         </header>
         
-        <!-- MENSAJE SIN PEDIDOS -->
-        <div th:if="${pedidosMesa == null or pedidosMesa.empty}" class="sin-pedidos">
-            <i class="fas fa-check-circle"></i>
-            <h3>¡No hay pedidos pendientes!</h3>
-            <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
-        </div>
-        
         <!-- GRID DE CARTAS DECORADAS -->
         <div th:if="${pedidosMesa != null and not pedidosMesa.empty}" class="cards-pedidos-container">
             
@@ -44,7 +37,6 @@
                 th:data-pedido-id="${p.id}"
                 class="pedido-card pendiente">
                 
-                <!-- QUITAMOS EL FORM DEL CONTENEDOR PRINCIPAL -->
                 <!-- ENCABEZADO CON EFECTO SHINE -->
                 <div class="card-header pend">
                     <div class="card-numero" th:text="${iterStat.index + 1}"></div>
@@ -62,8 +54,8 @@
                     </div>
                     
                     <!-- NOTA CON ESTILO MEJORADO -->
-                    <div th:if="${p.nota == null and p.nota.isEmpty()}" class="espacio">
-                        <span text="x"></span>
+                    <div th:if="${p.nota == null or p.nota.isEmpty()}" class="espacio">
+                        <span></span>
                     </div>
                     <div th:if="${p.nota != null and not p.nota.isEmpty()}" 
                         class="card-nota">
@@ -91,23 +83,19 @@
                         </button>
                     </div>
                     
+                    <!-- En la sección del botón de confirmación, asegúrate de que tenga type="button" -->
                     <div class="confirmacion-container">
-                        <!-- FORM SEPARADO SOLO PARA EL BOTÓN DE CONFIRMACIÓN -->
-                        <form th:action="@{/completarPedido/{pedidoId}(pedidoId=${p.id})}" 
-                            method="post" 
-                            class="form-completar">
-                            <button type="submit" class="btn-confirmacion">
-                                <i class="fas fa-paper-plane"></i>
-                                <span>Pedido Realizado</span>
-                            </button>
-                        </form>
+                        <button type="button" class="btn-confirmacion" data-pedido-id="${p.id}">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Pedido Realizado</span>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</body>
-
+    
     <script th:src="@{/Pendientes/Pendientes.js}"></script>
     <script th:src="@{/Pendientes/envioComplet.js}"></script>
+</body>
 </html>

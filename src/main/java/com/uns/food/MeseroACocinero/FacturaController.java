@@ -6,8 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -28,10 +28,29 @@ public class FacturaController {
         Map<String, Object> response = new HashMap<>();
         
         try {
+            // Antes de facturar, verificar cuántos pedidos tiene la mesa
+            List<Pedidos> pedidosCompletados = pedidosRepository.findByMesaIdAndCompletadoTrue(mesaId);
+            List<Pedidos> pedidosPendientes = pedidosRepository.findByMesaIdAndCompletadoFalse(mesaId);
+            
+            System.out.println("📋 Antes de facturar - Mesa " + mesaId + ":");
+            System.out.println("   Completados: " + pedidosCompletados.size());
+            System.out.println("   Pendientes: " + pedidosPendientes.size());
+            
+            // Facturar
             exportadorExcelService.exportarPedidosAFacturar(mesaId);
             
+            // Verificar después de facturar
+            List<Pedidos> pedidosDespues = pedidosRepository.findByMesaId(mesaId);
+            
             response.put("success", true);
-            response.put("message", "✅ Pedidos facturados correctamente");
+            response.put("message", "✅ Mesa facturada correctamente");
+            response.put("mesaId", mesaId);
+            response.put("completadosExportados", pedidosCompletados.size());
+            response.put("pendientesEliminados", pedidosPendientes.size());
+            response.put("totalEliminados", pedidosCompletados.size() + pedidosPendientes.size());
+            response.put("pedidosRestantes", pedidosDespues.size()); // Debería ser 0
+            
+            System.out.println("✅ Verificación post-facturación: " + pedidosDespues.size() + " pedidos restantes (debe ser 0)");
             
         } catch (Exception e) {
             response.put("success", false);

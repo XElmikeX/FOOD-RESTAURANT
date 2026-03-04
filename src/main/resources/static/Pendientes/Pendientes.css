@@ -1,3 +1,5 @@
+/* En Pendientes.css - Busca y modifica o elimina estas secciones */
+
 /* ===== RESET Y ESTILOS BASE ===== */
 * {
     margin: 0;
@@ -300,27 +302,6 @@ header h1 i {
         transform: translateY(0);
     }
 }
-/*------------------------------------------*/
-.card-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(
-        45deg,
-        transparent 30%,
-        rgba(255, 255, 255, 0.1) 50%,
-        transparent 70%
-    );
-    animation: shine 3s infinite linear;
-}
-
-@keyframes shine {
-    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
-}
 
 .card-numero {
     font-size: 2.2em;
@@ -435,21 +416,6 @@ header h1 i {
     letter-spacing: 0.5px;
     position: relative;
     overflow: hidden;
-}
-
-.btn-estado::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-}
-
-.btn-estado:hover::before {
-    left: 100%;
 }
 
 .btn-pendiente {
@@ -649,4 +615,169 @@ header h1 i {
 
 ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(135deg, #5a6fd8, #6a42a0);
+}
+
+/* Modificar la clase sin-pedidos para que ocupe todo el ancho */
+.sin-pedidos {
+    width: 100vw !important;
+    margin-left: calc(-50vw + 50%) !important;
+    margin-right: calc(-50vw + 50%) !important;
+    text-align: center;
+    padding: 80px 20px !important;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+}
+
+/* ===== MENSAJE SIN PEDIDOS - ANCHO COMPLETO Y CENTRADO ===== */
+.fullwidth-message-container {
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.sin-pedidos-fullwidth {
+    max-width: 800px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 40px;
+    background: white;
+    border-radius: 30px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
+    box-sizing: border-box;
+    animation: fadeIn 0.5s ease;
+}
+
+.sin-pedidos-fullwidth i {
+    font-size: 6rem;
+    color: #27ae60;
+    margin-bottom: 25px;
+    opacity: 0.9;
+}
+
+.sin-pedidos-fullwidth h3 {
+    font-size: 2.8rem;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.sin-pedidos-fullwidth p {
+    font-size: 1.4rem;
+    color: #7f8c8d;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .sin-pedidos-fullwidth {
+        padding: 50px 30px;
+    }
+    
+    .sin-pedidos-fullwidth i {
+        font-size: 5rem;
+    }
+    
+    .sin-pedidos-fullwidth h3 {
+        font-size: 2.2rem;
+    }
+    
+    .sin-pedidos-fullwidth p {
+        font-size: 1.2rem;
+        padding: 0 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sin-pedidos-fullwidth {
+        padding: 40px 20px;
+    }
+    
+    .sin-pedidos-fullwidth i {
+        font-size: 4rem;
+    }
+    
+    .sin-pedidos-fullwidth h3 {
+        font-size: 1.8rem;
+    }
+    
+    .sin-pedidos-fullwidth p {
+        font-size: 1rem;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Animaciones para feedback inmediato */
+@keyframes pulse-estado {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.pedido-card.cambiando {
+    animation: pulse-estado 0.3s ease;
+}
+
+/* Estilo para el botón de confirmación cuando aparece */
+.confirmacion-container.aparicion {
+    animation: slideUpFade 0.3s ease forwards;
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mejora visual para el botón activo */
+.btn-estado.activo {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-estado.activo::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.2);
+    animation: shine 1.5s infinite;
+}
+
+@keyframes shine {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(100%); }
+    100% { transform: translateX(100%); }
 }

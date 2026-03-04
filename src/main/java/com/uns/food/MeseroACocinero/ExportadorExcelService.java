@@ -2,10 +2,13 @@ package com.uns.food.MeseroACocinero;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -16,27 +19,50 @@ public class ExportadorExcelService {
     
     @Autowired
     private PedidosRepository pedidosRepository;
+    
+    @Autowired
+    private MesasRepository mesasRepository;
 
+    @Transactional
     public void exportarPedidosAFacturar(Long mesaId) throws IOException {
-        // Obtener pedidos completados de la mesa
-        List<Pedidos> pedidos = pedidosRepository.findByMesaIdAndCompletadoTrue(mesaId);
+        // 1. Obtener TODOS los pedidos de la mesa
+        List<Pedidos> pedidosCompletados = pedidosRepository.findByMesaIdAndCompletadoTrue(mesaId);
+        List<Pedidos> pedidosPendientes = pedidosRepository.findByMesaIdAndCompletadoFalse(mesaId);
         
-        if (pedidos.isEmpty()) {
-            return;
+        System.out.println("📊 Facturando mesa " + mesaId + ":");
+        System.out.println("   - Completados: " + pedidosCompletados.size() + " (se guardarán en Excel)");
+        System.out.println("   - Pendientes: " + pedidosPendientes.size() + " (se eliminarán sin guardar)");
+        
+        // 2. Guardar en Excel SOLO los completados
+        if (!pedidosCompletados.isEmpty()) {
+            List<PortalController.PedidoFacturaDTO> pedidosDTO = pedidosCompletados.stream()
+                .map(PortalController.PedidoFacturaDTO::new)
+                .collect(Collectors.toList());
+            
+            googleSheetsService.guardarFactura(mesaId, pedidosDTO);
+            System.out.println("✅ " + pedidosCompletados.size() + " pedidos exportados a Google Sheets");
         }
-
-        // Convertir a DTOs
-        List<PortalController.PedidoFacturaDTO> pedidosDTO = pedidos.stream()
-            .map(PortalController.PedidoFacturaDTO::new)
-            .collect(Collectors.toList());
         
-        // Guardar en Google Sheets con el formato exacto de tu imagen
-        googleSheetsService.guardarFactura(mesaId, pedidosDTO);
+        // 3. ELIMINAR TODOS los pedidos de la mesa (completados Y pendientes)
+        List<Pedidos> todosLosPedidos = new ArrayList<>();
+        todosLosPedidos.addAll(pedidosCompletados);
+        todosLosPedidos.addAll(pedidosPendientes);
         
-        // Eliminar los pedidos después de exportarlos
-        pedidosRepository.deleteAll(pedidos);
+        if (!todosLosPedidos.isEmpty()) {
+            pedidosRepository.deleteAll(todosLosPedidos);
+            System.out.println("🗑️ Eliminados " + todosLosPedidos.size() + " pedidos de la mesa " + mesaId);
+        }
         
-        System.out.println("✅ Mesa " + mesaId + " facturada y guardada en Google Sheets");
+        // 4. Actualizar estado de la mesa
+        Optional<Mesas> mesaOpt = mesasRepository.findById(mesaId);
+        if (mesaOpt.isPresent()) {
+            Mesas mesa = mesaOpt.get();
+            mesa.setPendiente(false);
+            mesasRepository.save(mesa);
+            System.out.println("✅ Mesa " + mesaId + " marcada como sin pedidos");
+        }
+        
+        System.out.println("💰 Mesa " + mesaId + " facturada completamente");
     }
 
     public Map<String, Object> obtenerResumenDiario() throws IOException {
@@ -48,7 +74,6 @@ public class ExportadorExcelService {
     }
     
     public boolean existeArchivoExcel() {
-        // Ya no usamos archivo local, pero mantenemos el método para compatibilidad
         return false;
     }
 }

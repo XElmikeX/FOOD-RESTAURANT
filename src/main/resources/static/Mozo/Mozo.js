@@ -1,4 +1,40 @@
 // Mozo.js - Versión actualizada con badge de completado
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Mozo.js cargado - Versión con detección de facturación');
+    
+    // Cargar estados iniciales desde BD
+    cargarEstadosPedidos();
+    
+    // Escuchar evento personalizado de actualización de pedidos
+    window.addEventListener('pedidoActualizado', function(e) {
+        console.log('Pedido actualizado en mesa:', e.detail.mesaId);
+        cargarEstadosPedidos();
+    });
+    
+    // 🔥 NUEVO: Escuchar evento de facturación
+    window.addEventListener('mesaFacturada', function(e) {
+        console.log('💰 Mesa facturada detectada en Mozo:', e.detail.mesaId);
+        // Recargar inmediatamente los estados
+        cargarEstadosPedidos();
+        mostrarNotificacion(`Mesa ${e.detail.mesaId} facturada`, 'info');
+    });
+    
+    // 🔥 NUEVO: Escuchar cambios en localStorage (para otras pestañas)
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'mesa_facturada' && e.newValue) {
+            try {
+                const data = JSON.parse(e.newValue);
+                console.log('💰 Mesa facturada detectada en otra pestaña:', data.mesaId);
+                cargarEstadosPedidos();
+            } catch (error) {
+                console.error('Error parseando evento de facturación:', error);
+            }
+        }
+    });
+    
+    // Actualizar cada 3 segundos
+    setInterval(cargarEstadosPedidos, 3000);
+});
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Mozo.js cargado - Versión BD');

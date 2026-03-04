@@ -81,7 +81,7 @@ function actualizarEstadisticasFacturas() {
 
 // Modificar eliminarPedidosMesa para actualizar después de facturar
 function eliminarPedidosMesa(mesaId) {
-    if (!confirm('¿Estás seguro de que deseas facturar estos pedidos?')) {
+    if (!confirm('¿Estás seguro de que deseas facturar esta mesa?\n\n⚠️ ESTO ELIMINARÁ TODOS LOS PEDIDOS (completados Y pendientes) de la mesa.')) {
         return;
     }
     
@@ -89,6 +89,9 @@ function eliminarPedidosMesa(mesaId) {
     const textoOriginal = boton.innerHTML;
     boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Facturando...';
     boton.disabled = true;
+    
+    // Guardar referencia a la tarjeta antes de eliminarla
+    const mesaCard = document.getElementById('mesa-' + mesaId);
     
     fetch('/api/pedidos/eliminarYGuardar/' + mesaId, {
         method: 'POST',
@@ -99,15 +102,45 @@ function eliminarPedidosMesa(mesaId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Eliminar la mesa del localStorage
-            eliminarMesaDeLocalStorage(mesaId);
+            // 🔥 Notificar a todas las páginas que esta mesa fue facturada
+            notificarMesaFacturada(mesaId);
             
-            mostrarNotificacion('✅ Pedidos facturados correctamente', 'success');
+            mostrarNotificacion('✅ Mesa facturada correctamente', 'success');
             
-            // Actualizar inmediatamente
+            // Eliminar la carta del DOM con animación
+            if (mesaCard) {
+                mesaCard.style.transition = 'all 0.3s ease';
+                mesaCard.style.transform = 'scale(0.8)';
+                mesaCard.style.opacity = '0';
+                
+                setTimeout(() => {
+                    mesaCard.remove();
+                    console.log(`🗑️ Mesa ${mesaId} eliminada del DOM`);
+                    
+                    // Verificar si no quedan mesas
+                    const mesasRestantes = document.querySelectorAll('.mesa-factura-card');
+                    if (mesasRestantes.length === 0) {
+                        const container = document.querySelector('.facturas-container');
+                        if (container) {
+                            container.innerHTML = `
+                                <div class="sin-facturas">
+                                    <i class="fas fa-check-circle"></i>
+                                    <h3>No hay pedidos listos para facturar</h3>
+                                    <p>Los pedidos aparecerán aquí cuando el cocinero los complete</p>
+                                </div>
+                            `;
+                        }
+                    }
+                }, 300);
+            }
+            
+            // Actualizar resumen diario y totales
+            cargarResumenDiario();
+            actualizarTotales();
+            
+            // Forzar una actualización completa después de facturar
             setTimeout(() => {
                 actualizarFacturasContainer();
-                cargarResumenDiario();
             }, 500);
             
         } else {
@@ -122,6 +155,36 @@ function eliminarPedidosMesa(mesaId) {
         boton.innerHTML = textoOriginal;
         boton.disabled = false;
     });
+}
+
+// 🔥 NUEVA FUNCIÓN: Notificar a todas las páginas que una mesa fue facturada
+function notificarMesaFacturada(mesaId) {
+    console.log('📢 Notificando facturación de mesa', mesaId);
+    
+    // 1. Actualizar localStorage para que otras pestañas reaccionen
+    const STORAGE_KEY = 'mesa_facturada';
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        mesaId: mesaId,
+        timestamp: new Date().toISOString()
+    }));
+    
+    // Limpiar después de 1 segundo
+    setTimeout(() => {
+        localStorage.removeItem(STORAGE_KEY);
+    }, 1000);
+    
+    // 2. Llamar al backend para notificar (esto podría usarse para WebSockets en el futuro)
+    fetch('/api/pedidos/mesa-facturada/' + mesaId, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    }).catch(error => console.log('Error notificando al backend:', error));
+    
+    // 3. Disparar evento personalizado para esta pestaña
+    window.dispatchEvent(new CustomEvent('mesaFacturada', {
+        detail: { mesaId: mesaId }
+    }));
 }
 
 // Pausar actualizaciones cuando la pestaña no está visible (opcional)

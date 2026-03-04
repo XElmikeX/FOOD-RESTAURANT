@@ -1,7 +1,6 @@
 package com.uns.food.MeseroACocinero;
 
 import java.time.LocalDateTime;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -79,6 +78,21 @@ public class PortalController {
                 mesa.setPendiente(true);
                 mesasRepository.save(mesa);
                 
+                // 🔥 VERIFICAR SI LA MESA YA TIENE ALGÚN PEDIDO CON INTERACCIÓN
+                List<Pedidos> pedidosExistentes = pedidosRepository.findByMesaId(mesa.getId());
+                boolean tieneInteraccion = false;
+                
+                for (Pedidos p : pedidosExistentes) {
+                    if (p.getCocineroInteractuo()) {
+                        tieneInteraccion = true;
+                        break;
+                    }
+                }
+                
+                System.out.println("📋 Mesa " + mesa.getId() + 
+                                (tieneInteraccion ? " YA tiene interacción previa" : 
+                                                    " NO tiene interacción previa"));
+                
                 for (PedidoDTO pedidoDTO : pedidosDTO) {
                     
                     try {
@@ -97,8 +111,13 @@ public class PortalController {
                             pedido.setPrecioTotal(comida.getPrecio() * pedidoDTO.getCantidad());
                             pedido.setEstado("pendiente");
                             
-                            // 🔥 AQUÍ DEBES AGREGAR ESTA LÍNEA 🔥
-                            pedido.setCocineroInteractuo(false); // Inicialmente el cocinero NO ha interactuado
+                            // 🔥 Si la mesa YA tiene interacción, el nuevo pedido también debe tenerla
+                            if (tieneInteraccion) {
+                                pedido.setCocineroInteractuo(true);
+                                System.out.println("✅ Nuevo pedido para mesa con interacción - marcado como interactuado");
+                            } else {
+                                pedido.setCocineroInteractuo(false);
+                            }
                             
                             pedidosRepository.save(pedido);
                         } else {
@@ -108,6 +127,14 @@ public class PortalController {
                         System.err.println("Error al parsear comidaId: " + pedidoDTO.getComidaId());
                     }
                 }
+                
+                // 🔥 Si hay interacción, disparar evento para actualizar MOZO inmediatamente
+                if (tieneInteraccion) {
+                    System.out.println("🔄 Disparando evento de actualización para mesa " + mesa.getId());
+                    // No podemos disparar eventos desde el backend directamente,
+                    // pero el frontend ya está actualizando cada 3 segundos
+                }
+                
             } else {
                 System.err.println("Mesa no encontrada con ID: " + idMesa);
             }
@@ -238,12 +265,17 @@ public class PortalController {
             response.put("mesaId", mesaId);
             response.put("pedidosRestantes", pedidosRestantes.size());
             
-            return ResponseEntity.ok(response);
+            // 🔥 FORZAR que la respuesta sea JSON
+            return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(response);
             
         } catch (Exception e) {
             response.put("success", false);
             response.put("message", "Error al completar pedido: " + e.getMessage());
-            return ResponseEntity.status(500).body(response);
+            return ResponseEntity.status(500)
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(response);
         }
     }
 
