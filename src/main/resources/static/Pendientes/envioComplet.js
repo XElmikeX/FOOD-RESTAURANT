@@ -1,9 +1,9 @@
-// envioComplet.js - VERSIÓN MEJORADA CON SINCRONIZACIÓN
-console.log('🚀 envioComplet.js CARGADO - Con sincronización entre dispositivos');
+// envioComplet.js - VERSIÓN MEJORADA CON SINCRONIZACIÓN ENTRE DISPOSITIVOS
+console.log('🚀 envioComplet.js CARGADO - Versión con sincronización');
 
 // Esperar a que el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ DOM cargado, buscando botones de pedido realizado...');
+    console.log('✅ DOM cargado, buscando botones...');
     
     // Buscar todos los botones de confirmación
     const botones = document.querySelectorAll('.btn-confirmacion');
@@ -12,20 +12,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Asignar evento a cada botón
     botones.forEach((boton, index) => {
         console.log(`Asignando evento al botón ${index + 1}`);
+        
+        // Remover eventos anteriores para evitar duplicados
         boton.removeEventListener('click', manejarClickCompletar);
+        
+        // Agregar nuevo evento
         boton.addEventListener('click', manejarClickCompletar);
     });
+    
+    // Verificar pedidos completados al cargar la página
+    verificarPedidosCompletados();
 });
-
-// Variable para controlar peticiones en curso
-const peticionesCompletar = new Map();
 
 // Función para manejar el click
 function manejarClickCompletar(event) {
+    // Prevenir comportamiento por defecto
     event.preventDefault();
     event.stopPropagation();
     
-    console.log('🎯 BOTÓN PEDIDO REALIZADO CLICKEADO');
+    console.log('🎯 BOTÓN CLICKEADO - Evento disparado');
     
     const boton = event.currentTarget;
     const card = boton.closest('.pedido-card');
@@ -43,32 +48,19 @@ function manejarClickCompletar(event) {
         return;
     }
     
-    // Verificar si ya hay una petición para este pedido
-    if (peticionesCompletar.has(pedidoId)) {
-        console.log(`⏳ Ya se está procesando el pedido ${pedidoId}`);
-        mostrarNotificacion('Procesando...', 'info');
-        return;
-    }
-    
-    // Marcar petición en curso
-    peticionesCompletar.set(pedidoId, true);
-    
-    // Guardar referencia a la mesa para luego
-    const mesaElement = document.querySelector('.mesa-numero');
-    const mesaId = mesaElement ? mesaElement.textContent.replace('Mesa: ', '').trim() : null;
-    
     // Guardar texto original
     const textoOriginal = boton.innerHTML;
     
     // Cambiar botón a estado de carga
     boton.disabled = true;
-    boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Completando...';
+    boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
     
-    // 🔥 PASO 1: ELIMINAR INMEDIATAMENTE EN DISPOSITIVO LOCAL
-    eliminarPedidoLocal(card, pedidoId);
+    // Construir URL
+    const url = `/completarPedido/${pedidoId}`;
+    console.log('📡 Enviando petición a:', url);
     
-    // 🔥 PASO 2: ENVIAR AL SERVIDOR PARA ELIMINAR EN BD
-    fetch(`/completarPedido/${pedidoId}`, {
+    // Hacer fetch
+    fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -85,12 +77,13 @@ function manejarClickCompletar(event) {
         console.log('📊 Datos recibidos:', data);
         
         if (data.success) {
-            console.log('✅ Pedido completado con éxito en servidor');
+            console.log('✅ Pedido completado con éxito');
             
-            // 🔥 PASO 3: NOTIFICAR A OTROS DISPOSITIVOS
-            notificarPedidoCompletado(pedidoId, mesaId);
+            // 🔥 NUEVO: Guardar en localStorage para sincronizar con otros dispositivos
+            guardarPedidoCompletado(pedidoId, data.mesaId);
             
-            mostrarNotificacion('✅ Pedido realizado', 'success');
+            // Animar y eliminar la tarjeta
+            eliminarTarjetaConAnimacion(card, pedidoId);
             
         } else {
             throw new Error(data.message || 'Error desconocido');
@@ -98,29 +91,100 @@ function manejarClickCompletar(event) {
     })
     .catch(error => {
         console.error('❌ Error:', error);
-        mostrarNotificacion('❌ Error al completar', 'error');
         
-        // Restaurar botón solo si la tarjeta aún existe
-        if (document.querySelector(`.pedido-card[data-pedido-id="${pedidoId}"]`)) {
-            boton.disabled = false;
-            boton.innerHTML = textoOriginal;
-        }
-    })
-    .finally(() => {
-        peticionesCompletar.delete(pedidoId);
+        // Restaurar botón
+        boton.disabled = false;
+        boton.innerHTML = textoOriginal;
+        
+        mostrarNotificacion('❌ Error al completar pedido', 'error');
     });
 }
 
-// 🔥 NUEVA FUNCIÓN: Eliminar pedido localmente con animación
-function eliminarPedidoLocal(card, pedidoId) {
-    console.log(`🗑️ Eliminando pedido ${pedidoId} localmente`);
+// 🔥 NUEVA FUNCIÓN: Guardar pedido completado en localStorage
+function guardarPedidoCompletado(pedidoId, mesaId) {
+    // Obtener la mesa actual
+    const mesaActual = obtenerMesaIdNumerico();
     
-    // Marcar para que no sea restaurado por polling
-    if (card) {
-        card.dataset.eliminado = 'true';
-        card.dataset.momentoEliminacion = Date.now().toString();
-    }
+    const completadoData = {
+        pedidoId: pedidoId,
+        mesaId: mesaActual || mesaId,
+        timestamp: Date.now()
+    };
     
+    console.log('💾 Guardando pedido completado en localStorage:', completadoData);
+    
+    // Guardar en localStorage para otras pestañas/dispositivos
+    localStorage.setItem('pedido_completado', JSON.stringify(completadoData));
+    
+    // También guardar en un historial para verificación al cargar
+    guardarEnHistorialCompletados(pedidoId, mesaActual || mesaId);
+    
+    // Limpiar después de 3 segundos
+    setTimeout(() => {
+        localStorage.removeItem('pedido_completado');
+    }, 3000);
+}
+
+// 🔥 NUEVA FUNCIÓN: Guardar en historial de completados
+function guardarEnHistorialCompletados(pedidoId, mesaId) {
+    const HISTORIAL_KEY = 'pedidos_completados';
+    let historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
+    
+    // Agregar el nuevo pedido completado
+    historial.push({
+        pedidoId: pedidoId,
+        mesaId: mesaId,
+        timestamp: Date.now()
+    });
+    
+    // Limpiar historial antiguo (mayor a 1 minuto)
+    const ahora = Date.now();
+    historial = historial.filter(item => (ahora - item.timestamp) < 60000); // 1 minuto
+    
+    localStorage.setItem(HISTORIAL_KEY, JSON.stringify(historial));
+}
+
+// 🔥 NUEVA FUNCIÓN: Verificar pedidos completados al cargar
+function verificarPedidosCompletados() {
+    const HISTORIAL_KEY = 'pedidos_completados';
+    const historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
+    const mesaActual = obtenerMesaIdNumerico();
+    
+    if (!mesaActual || historial.length === 0) return;
+    
+    console.log('🔍 Verificando historial de completados:', historial);
+    
+    // Filtrar pedidos de esta mesa
+    const pedidosDeEstaMesa = historial.filter(item => item.mesaId == mesaActual);
+    
+    pedidosDeEstaMesa.forEach(item => {
+        const card = document.querySelector(`.pedido-card[data-pedido-id="${item.pedidoId}"]`);
+        if (card) {
+            console.log(`🗑️ Eliminando pedido ${item.pedidoId} desde historial`);
+            eliminarTarjetaSinFetch(card, item.pedidoId);
+        }
+    });
+}
+
+// 🔥 NUEVA FUNCIÓN: Eliminar tarjeta sin hacer fetch (para sincronización)
+function eliminarTarjetaSinFetch(card, pedidoId) {
+    if (!card || !card.parentNode) return;
+    
+    // Animar eliminación
+    card.style.transition = 'all 0.3s ease';
+    card.style.opacity = '0';
+    card.style.transform = 'scale(0.8)';
+    
+    setTimeout(() => {
+        if (card.parentNode) {
+            card.remove();
+            verificarPedidosRestantes();
+        }
+    }, 300);
+}
+
+// 🔥 NUEVA FUNCIÓN: Extraer la lógica de eliminación de tarjeta
+function eliminarTarjetaConAnimacion(card, pedidoId) {
     // Animación de eliminación
     card.style.transition = 'all 0.3s ease';
     card.style.opacity = '0';
@@ -128,45 +192,16 @@ function eliminarPedidoLocal(card, pedidoId) {
     
     // Eliminar la tarjeta después de la animación
     setTimeout(() => {
-        if (card && card.parentNode) {
+        if (card.parentNode) {
             card.remove();
-            verificarSiQuedanPedidos();
+            verificarPedidosRestantes();
         }
     }, 300);
 }
 
-// 🔥 NUEVA FUNCIÓN: Notificar a otros dispositivos
-function notificarPedidoCompletado(pedidoId, mesaId) {
-    console.log(`📢 Notificando pedido ${pedidoId} completado a otros dispositivos`);
-    
-    // Guardar en localStorage para otras pestañas del mismo navegador
-    const completadosKey = 'pedidos_completados';
-    let completados = JSON.parse(localStorage.getItem(completadosKey)) || {};
-    
-    completados[pedidoId] = {
-        pedidoId: pedidoId,
-        mesaId: mesaId,
-        timestamp: Date.now()
-    };
-    
-    localStorage.setItem(completadosKey, JSON.stringify(completados));
-    
-    // Disparar evento específico para este pedido
-    localStorage.setItem('ultimo_completado', JSON.stringify({
-        pedidoId: pedidoId,
-        mesaId: mesaId,
-        timestamp: Date.now()
-    }));
-    
-    // Limpiar después de 3 segundos
-    setTimeout(() => {
-        localStorage.removeItem('ultimo_completado');
-    }, 3000);
-}
-
-// 🔥 NUEVA FUNCIÓN: Verificar si quedan pedidos después de eliminar
-function verificarSiQuedanPedidos() {
-    const pedidosRestantes = document.querySelectorAll('.pedido-card:not([data-eliminado="true"])');
+// 🔥 NUEVA FUNCIÓN: Verificar si quedan pedidos y mostrar mensaje
+function verificarPedidosRestantes() {
+    const pedidosRestantes = document.querySelectorAll('.pedido-card');
     console.log(`📋 Pedidos restantes: ${pedidosRestantes.length}`);
     
     if (pedidosRestantes.length === 0) {
@@ -176,41 +211,44 @@ function verificarSiQuedanPedidos() {
             container.style.display = 'none';
         }
         
-        // Mostrar mensaje de no hay pedidos
-        mostrarMensajeSinPedidos();
-    }
-}
-
-function mostrarMensajeSinPedidos() {
-    // Buscar o crear contenedor para el mensaje centrado
-    let fullWidthContainer = document.querySelector('.fullwidth-message-container');
-    if (!fullWidthContainer) {
-        fullWidthContainer = document.createElement('div');
-        fullWidthContainer.className = 'fullwidth-message-container';
-        
-        const containerElement = document.querySelector('.container');
-        const header = document.querySelector('header');
-        
-        if (header && header.nextSibling) {
-            containerElement.insertBefore(fullWidthContainer, header.nextSibling);
-        } else {
-            containerElement.appendChild(fullWidthContainer);
+        // Buscar o crear contenedor para el mensaje centrado
+        let fullWidthContainer = document.querySelector('.fullwidth-message-container');
+        if (!fullWidthContainer) {
+            fullWidthContainer = document.createElement('div');
+            fullWidthContainer.className = 'fullwidth-message-container';
+            
+            // Insertar después del header o al final del container
+            const containerElement = document.querySelector('.container');
+            const header = document.querySelector('header');
+            
+            if (header && header.nextSibling) {
+                containerElement.insertBefore(fullWidthContainer, header.nextSibling);
+            } else {
+                containerElement.appendChild(fullWidthContainer);
+            }
         }
+        
+        fullWidthContainer.innerHTML = `
+            <div class="sin-pedidos-fullwidth">
+                <i class="fas fa-check-circle"></i>
+                <h3>¡No hay pedidos pendientes!</h3>
+                <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
+            </div>
+        `;
     }
-    
-    fullWidthContainer.innerHTML = `
-        <div class="sin-pedidos-fullwidth">
-            <i class="fas fa-check-circle"></i>
-            <h3>¡No hay pedidos pendientes!</h3>
-            <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
-        </div>
-    `;
 }
 
+// Función para obtener el ID de la mesa
+function obtenerMesaIdNumerico() {
+    const mesaIdElement = document.querySelector('.mesaEscojida .mesa-numero');
+    if (mesaIdElement) {
+        return mesaIdElement.textContent.replace('Mesa: ', '').trim();
+    }
+    return null;
+}
+
+// Función para mostrar notificaciones
 function mostrarNotificacion(mensaje, tipo) {
-    const notificacionesPrevias = document.querySelectorAll('.notificacion-temp');
-    notificacionesPrevias.forEach(n => n.remove());
-    
     const notificacion = document.createElement('div');
     notificacion.className = `notificacion-temp ${tipo}`;
     notificacion.innerHTML = mensaje;
@@ -222,9 +260,6 @@ function mostrarNotificacion(mensaje, tipo) {
             break;
         case 'error':
             colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
-            break;
-        case 'info':
-            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
             break;
         default:
             colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
@@ -242,9 +277,6 @@ function mostrarNotificacion(mensaje, tipo) {
         z-index: 9999;
         animation: slideIn 0.3s ease;
         background: ${colorFondo};
-        display: flex;
-        align-items: center;
-        gap: 10px;
     `;
     
     document.body.appendChild(notificacion);
@@ -255,20 +287,108 @@ function mostrarNotificacion(mensaje, tipo) {
     }, 3000);
 }
 
-// También asignar eventos si hay cambios en el DOM
+// ===== ESCUCHAR CAMBIOS DE OTROS DISPOSITIVOS =====
+
+// 🔥 NUEVO: Escuchar eventos de localStorage (para sincronización)
+window.addEventListener('storage', function(e) {
+    // Escuchar cuando se completa un pedido
+    if (e.key === 'pedido_completado' && e.newValue) {
+        try {
+            const data = JSON.parse(e.newValue);
+            console.log('📡 Pedido completado detectado en otro dispositivo:', data);
+            
+            // Obtener mesa actual
+            const mesaActual = obtenerMesaIdNumerico();
+            
+            // Solo procesar si es de la misma mesa
+            if (mesaActual && data.mesaId == mesaActual) {
+                const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                
+                if (card) {
+                    console.log(`🗑️ Eliminando pedido ${data.pedidoId} por solicitud de otro dispositivo`);
+                    
+                    // Agregar un pequeño retraso para evitar conflictos
+                    setTimeout(() => {
+                        eliminarTarjetaSinFetch(card, data.pedidoId);
+                        
+                        // Mostrar notificación
+                        mostrarNotificacion('📱 Pedido completado en otro dispositivo', 'info');
+                    }, 100);
+                }
+            }
+        } catch (error) {
+            console.error('Error procesando pedido completado:', error);
+        }
+    }
+    
+    // 🔥 También escuchar cambios de estado (para mantener consistencia)
+    if (e.key === 'ultimo_cambio' && e.newValue) {
+        try {
+            const data = JSON.parse(e.newValue);
+            const mesaActual = obtenerMesaIdNumerico();
+            
+            if (mesaActual && data.mesaId == mesaActual) {
+                const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                
+                // Si el estado cambió a "listo", aseguramos que el botón de confirmación aparezca
+                if (card && data.estado === 'listo') {
+                    const confir = card.querySelector(".confirmacion-container");
+                    if (confir) {
+                        confir.classList.add('aparicion');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error procesando cambio de estado:', error);
+        }
+    }
+});
+
+// También observar cambios en el DOM
 const observer = new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
         if (mutation.addedNodes.length > 0) {
-            console.log('🔄 Detectados cambios en el DOM, reasignando eventos...');
+            // Buscar nuevos botones de confirmación
             document.querySelectorAll('.btn-confirmacion').forEach(boton => {
-                boton.removeEventListener('click', manejarClickCompletar);
-                boton.addEventListener('click', manejarClickCompletar);
+                // Verificar si ya tiene el evento
+                if (!boton.hasAttribute('data-evento-asignado')) {
+                    boton.removeEventListener('click', manejarClickCompletar);
+                    boton.addEventListener('click', manejarClickCompletar);
+                    boton.setAttribute('data-evento-asignado', 'true');
+                }
             });
         }
     });
 });
 
+// Observar cambios en el cuerpo del documento
 observer.observe(document.body, {
     childList: true,
     subtree: true
 });
+
+// Verificar historial periódicamente (por si acaso)
+setInterval(verificarPedidosCompletados, 5000);
+
+// Agregar estilos para notificaciones si no existen
+if (!document.querySelector('#estilos-sincronizacion')) {
+    const style = document.createElement('style');
+    style.id = 'estilos-sincronizacion';
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        .notificacion-temp {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    `;
+    document.head.appendChild(style);
+}

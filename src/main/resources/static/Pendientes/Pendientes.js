@@ -2,20 +2,15 @@
 let peticionesPendientes = new Map();
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Pendientes.js cargado - VERSIÓN CORREGIDA');
+    console.log('Pendientes.js cargado - Con UI inmediata y polling');
     
     // Cargar estados iniciales
     cargarEstadosIniciales();
     
-    // POLLING para cambios de estado (cada 3 segundos)
+    // POLLING: Actualizar cada 3 segundos (para que otros dispositivos vean cambios)
     setInterval(() => {
         console.log('🔄 Actualizando estados desde servidor (polling)...');
         cargarEstadosIniciales();
-    }, 3000);
-    
-    // POLLING específico para pedidos completados
-    setInterval(() => {
-        verificarPedidosCompletados();
     }, 3000);
     
     // Agregar evento a todos los botones de estado
@@ -27,8 +22,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const card = this.closest('.pedido-card');
             const pedidoId = card.dataset.pedidoId;
             
+            // Verificar si hay peticiones en curso
             if (peticionesPendientes.has(pedidoId)) {
                 console.log(`⏳ Ya hay una petición para pedido ${pedidoId}`);
+                mostrarNotificacion('Procesando...', 'info');
                 return;
             }
             
@@ -41,31 +38,74 @@ document.addEventListener('DOMContentLoaded', function() {
                 nuevoEstado = 'listo';
             }
             
-            // ACTUALIZACIÓN INMEDIATA EN DISPOSITIVO LOCAL
+            // 🔥 ACTUALIZACIÓN INMEDIATA EN DISPOSITIVO 1
             aplicarEstadoUI(card, nuevoEstado);
             
-            // Si es "listo", mostrar el botón de confirmación
+            // Si es "listo", mostrar el botón de confirmación INMEDIATAMENTE
             const confir = card.querySelector(".confirmacion-container");
             if (nuevoEstado === 'listo') {
                 confir.classList.add('aparicion');
+                confir.style.animation = 'fadeIn 0.3s ease';
             } else {
                 confir.classList.remove('aparicion');
             }
             
-            // Actualizar estado en la BD
+            // Feedback visual inmediato
+            mostrarFeedbackVisual(card, nuevoEstado);
+            
+            // Actualizar estado en la BD (en segundo plano)
             actualizarEstadoPedido(pedidoId, nuevoEstado, card);
         });
     });
     
-    // Agregar evento a los botones de "Pedido Realizado"
-    document.querySelectorAll('.btn-confirmacion').forEach(boton => {
-        boton.addEventListener('click', manejarClickCompletar);
-    });
+    // 🔥 NUEVO: Verificar si hay pedidos que ya fueron completados (con retraso para asegurar que el DOM esté listo)
+    setTimeout(() => {
+        verificarPedidosCompletadosCarga();
+    }, 500);
 });
 
-// Función para aplicar cambios visuales inmediatos
+// 🔥 Feedback visual inmediato
+function mostrarFeedbackVisual(card, nuevoEstado) {
+    card.style.transition = 'all 0.2s ease';
+    card.style.transform = 'scale(1.02)';
+    card.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
+    
+    setTimeout(() => {
+        card.style.transform = 'scale(1)';
+    }, 200);
+    
+    // Mensaje flotante
+    const mensaje = document.createElement('div');
+    mensaje.className = 'feedback-flotante';
+    mensaje.textContent = nuevoEstado === 'listo' ? '✓ Listo' : 
+                         nuevoEstado === 'proceso' ? '⚙ Proceso' : '⏱ Pendiente';
+    mensaje.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: ${nuevoEstado === 'listo' ? '#27ae60' : nuevoEstado === 'proceso' ? '#f39c12' : '#e74c3c'};
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        z-index: 10;
+        animation: fadeInOut 2s ease forwards;
+    `;
+    
+    card.style.position = 'relative';
+    card.appendChild(mensaje);
+    
+    setTimeout(() => {
+        if (mensaje.parentNode) {
+            mensaje.remove();
+        }
+    }, 2000);
+}
+
+// 🔥 Aplicar cambios visuales inmediatos
 function aplicarEstadoUI(card, estado) {
-    if (!card) return;
+    if (!card || !document.body.contains(card)) return;
     
     const header = card.querySelector(".card-header");
     const botonPendiente = card.querySelector('.btn-pendiente');
@@ -98,6 +138,7 @@ function aplicarEstadoUI(card, estado) {
     }
 }
 
+// 🔥 MODIFICADO: Ahora aplica estados pero respeta cambios recientes
 function cargarEstadosIniciales() {
     const mesaId = obtenerMesaIdNumerico();
     if (!mesaId) return;
@@ -106,16 +147,29 @@ function cargarEstadosIniciales() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                console.log('📦 Estados desde servidor:', data.pedidos.length);
+                
                 data.pedidos.forEach(pedidoInfo => {
                     const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${pedidoInfo.id}"]`);
                     if (pedidoCard) {
-                        aplicarEstadoUI(pedidoCard, pedidoInfo.estado);
+                        // 🔥 IMPORTANTE: Verificar si hubo interacción reciente
+                        const ultimaInteraccion = pedidoCard.dataset.ultimaInteraccion;
+                        const ahora = Date.now();
                         
-                        const confir = pedidoCard.querySelector(".confirmacion-container");
-                        if (pedidoInfo.estado === 'listo') {
-                            confir.classList.add('aparicion');
+                        // Si no hubo interacción en los últimos 2 segundos, aplicar estado
+                        if (!ultimaInteraccion || (ahora - parseInt(ultimaInteraccion)) > 2000) {
+                            console.log(`📋 Aplicando estado ${pedidoInfo.estado} a pedido ${pedidoInfo.id}`);
+                            aplicarEstadoUI(pedidoCard, pedidoInfo.estado);
+                            
+                            // Actualizar botón de confirmación según estado
+                            const confir = pedidoCard.querySelector(".confirmacion-container");
+                            if (pedidoInfo.estado === 'listo') {
+                                confir.classList.add('aparicion');
+                            } else {
+                                confir.classList.remove('aparicion');
+                            }
                         } else {
-                            confir.classList.remove('aparicion');
+                            console.log(`⏭️ Ignorando actualización para pedido ${pedidoInfo.id} - interacción reciente`);
                         }
                     }
                 });
@@ -125,7 +179,13 @@ function cargarEstadosIniciales() {
 }
 
 function actualizarEstadoPedido(pedidoId, nuevoEstado, card) {
+    // Marcar petición en curso
     peticionesPendientes.set(pedidoId, true);
+    
+    // 🔥 Marcar momento de interacción para evitar sobrescritura
+    if (card) {
+        card.dataset.ultimaInteraccion = Date.now().toString();
+    }
     
     fetch(`/api/pedidos/actualizar-estado/${pedidoId}`, {
         method: 'POST',
@@ -137,18 +197,61 @@ function actualizarEstadoPedido(pedidoId, nuevoEstado, card) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('✅ Estado actualizado:', data);
+            console.log('✅ Estado confirmado en servidor:', data);
+            
+            // 🔥 IMPORTANTE: Guardar en localStorage para sincronización básica
+            guardarEstadoEnStorage(pedidoId, nuevoEstado, data.mesaId);
+            
+            // Disparar evento para actualizar el MOZO (solo en esta pestaña)
+            window.dispatchEvent(new CustomEvent('pedidoActualizado', { 
+                detail: { 
+                    mesaId: data.mesaId,
+                    pedidoId: pedidoId,
+                    nuevoEstado: nuevoEstado
+                }
+            }));
+            
         } else {
             console.error('❌ Error en servidor');
-            cargarEstadosIniciales();
+            mostrarNotificacion('❌ Error al actualizar', 'error');
+            // Revertir UI (opcional)
+            setTimeout(() => cargarEstadosIniciales(), 1000);
         }
     })
     .catch(error => {
         console.error('Error:', error);
+        mostrarNotificacion('❌ Error de conexión', 'error');
     })
     .finally(() => {
         peticionesPendientes.delete(pedidoId);
     });
+}
+
+// 🔥 NUEVO: Guardar en localStorage para sincronización entre pestañas
+function guardarEstadoEnStorage(pedidoId, estado, mesaId) {
+    const STORAGE_KEY = 'ultimos_estados';
+    let estados = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    
+    estados[pedidoId] = {
+        estado: estado,
+        mesaId: mesaId,
+        timestamp: Date.now()
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(estados));
+    
+    // Disparar evento para otras pestañas de esta misma mesa
+    localStorage.setItem('ultimo_cambio', JSON.stringify({
+        pedidoId: pedidoId,
+        estado: estado,
+        mesaId: mesaId,
+        timestamp: Date.now()
+    }));
+    
+    // Limpiar después de 2 segundos
+    setTimeout(() => {
+        localStorage.removeItem('ultimo_cambio');
+    }, 2000);
 }
 
 function obtenerMesaIdNumerico() {
@@ -159,139 +262,217 @@ function obtenerMesaIdNumerico() {
     return null;
 }
 
-// Función para verificar pedidos completados
-function verificarPedidosCompletados() {
-    const mesaId = obtenerMesaIdNumerico();
-    if (!mesaId) return;
+function mostrarNotificacion(mensaje, tipo) {
+    const notificacionesPrevias = document.querySelectorAll('.notificacion-temp');
+    notificacionesPrevias.forEach(n => n.remove());
     
-    fetch(`/api/pedidos/estados-mesa/${mesaId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const pedidosCompletadosBD = new Set();
-                
-                data.pedidos.forEach(pedido => {
-                    if (pedido.completado === true) {
-                        pedidosCompletadosBD.add(String(pedido.id));
-                    }
-                });
-                
-                document.querySelectorAll('.pedido-card').forEach(card => {
-                    const pedidoId = card.dataset.pedidoId;
-                    
-                    if (pedidosCompletadosBD.has(pedidoId)) {
-                        console.log(`🗑️ Eliminando pedido ${pedidoId} - completado en BD`);
-                        
-                        card.style.transition = 'all 0.3s ease';
-                        card.style.opacity = '0';
-                        card.style.transform = 'scale(0.8)';
-                        
-                        setTimeout(() => {
-                            if (card.parentNode) {
-                                card.remove();
-                                verificarSiQuedanPedidos();
-                            }
-                        }, 300);
-                    }
-                });
-            }
-        })
-        .catch(error => console.error('Error:', error));
+    const notificacion = document.createElement('div');
+    notificacion.className = `notificacion-temp ${tipo}`;
+    notificacion.innerHTML = mensaje;
+    
+    let colorFondo;
+    switch(tipo) {
+        case 'success':
+            colorFondo = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            break;
+        case 'error':
+            colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            break;
+        case 'info':
+            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
+            break;
+        default:
+            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
+    }
+    
+    notificacion.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 10px;
+        color: white;
+        font-weight: 500;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+        background: ${colorFondo};
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+    
+    document.body.appendChild(notificacion);
+    
+    setTimeout(() => {
+        notificacion.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => notificacion.remove(), 300);
+    }, 3000);
 }
 
-function verificarSiQuedanPedidos() {
+// 🔥 NUEVO: Escuchar cambios de localStorage (para otras pestañas)
+window.addEventListener('storage', function(e) {
+    if (e.key === 'ultimo_cambio' && e.newValue) {
+        try {
+            const data = JSON.parse(e.newValue);
+            console.log('📡 Cambio detectado en otra pestaña:', data);
+            
+            // Solo procesar si es de la misma mesa que estamos viendo
+            const mesaActual = obtenerMesaIdNumerico();
+            if (mesaActual && data.mesaId == mesaActual) {
+                const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                if (pedidoCard) {
+                    // Verificar que no haya interacción reciente
+                    const ultimaInteraccion = pedidoCard.dataset.ultimaInteraccion;
+                    const ahora = Date.now();
+                    
+                    if (!ultimaInteraccion || (ahora - parseInt(ultimaInteraccion)) > 2000) {
+                        console.log(`🔄 Aplicando cambio desde otra pestaña: ${data.estado}`);
+                        aplicarEstadoUI(pedidoCard, data.estado);
+                        
+                        const confir = pedidoCard.querySelector(".confirmacion-container");
+                        if (data.estado === 'listo') {
+                            confir.classList.add('aparicion');
+                        } else {
+                            confir.classList.remove('aparicion');
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error procesando cambio de localStorage:', error);
+        }
+    }
+    
+    // 🔥 NUEVO: Escuchar también los pedidos completados
+    if (e.key === 'pedido_completado' && e.newValue) {
+        try {
+            const data = JSON.parse(e.newValue);
+            console.log('📡 Pedido completado detectado en otro dispositivo:', data);
+            
+            const mesaActual = obtenerMesaIdNumerico();
+            if (mesaActual && data.mesaId == mesaActual) {
+                const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                if (card) {
+                    console.log(`🗑️ Eliminando pedido ${data.pedidoId} por solicitud de otro dispositivo`);
+                    
+                    // Animar y eliminar
+                    card.style.transition = 'all 0.3s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.8)';
+                    
+                    setTimeout(() => {
+                        if (card.parentNode) {
+                            card.remove();
+                            verificarPedidosRestantes();
+                        }
+                    }, 300);
+                    
+                    mostrarNotificacion('📱 Pedido completado en otro dispositivo', 'info');
+                }
+            }
+        } catch (error) {
+            console.error('Error procesando pedido completado:', error);
+        }
+    }
+});
+
+// 🔥 NUEVA FUNCIÓN: Verificar pedidos completados al cargar
+function verificarPedidosCompletadosCarga() {
+    const HISTORIAL_KEY = 'pedidos_completados';
+    const historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
+    const mesaActual = obtenerMesaIdNumerico();
+    
+    if (!mesaActual || historial.length === 0) return;
+    
+    console.log('🔍 Verificando completados al cargar:', historial);
+    
+    historial.forEach(item => {
+        if (item.mesaId == mesaActual) {
+            const card = document.querySelector(`.pedido-card[data-pedido-id="${item.pedidoId}"]`);
+            if (card) {
+                console.log(`🗑️ Eliminando pedido completado ${item.pedidoId} al cargar`);
+                card.remove();
+            }
+        }
+    });
+    
+    // Verificar si ya no hay pedidos
+    verificarPedidosRestantes();
+}
+
+// 🔥 NUEVA FUNCIÓN: Verificar si quedan pedidos y mostrar mensaje
+function verificarPedidosRestantes() {
     const pedidosRestantes = document.querySelectorAll('.pedido-card');
+    console.log(`📋 Pedidos restantes: ${pedidosRestantes.length}`);
     
     if (pedidosRestantes.length === 0) {
         const container = document.querySelector('.cards-pedidos-container');
         if (container) {
             container.style.display = 'none';
+            mostrarMensajeSinPedidos();
+        }
+    } else {
+        const container = document.querySelector('.cards-pedidos-container');
+        if (container) {
+            container.style.display = 'grid';
         }
         
-        let fullWidthContainer = document.querySelector('.fullwidth-message-container');
-        if (!fullWidthContainer) {
-            fullWidthContainer = document.createElement('div');
-            fullWidthContainer.className = 'fullwidth-message-container';
-            
-            const containerElement = document.querySelector('.container');
-            const header = document.querySelector('header');
-            
-            if (header && header.nextSibling) {
-                containerElement.insertBefore(fullWidthContainer, header.nextSibling);
-            } else {
-                containerElement.appendChild(fullWidthContainer);
-            }
+        // Ocultar mensaje si existe
+        const mensajeContainer = document.querySelector('.fullwidth-message-container');
+        if (mensajeContainer) {
+            mensajeContainer.remove();
         }
-        
-        fullWidthContainer.innerHTML = `
-            <div class="sin-pedidos-fullwidth">
-                <i class="fas fa-check-circle"></i>
-                <h3>¡No hay pedidos pendientes!</h3>
-                <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
-            </div>
-        `;
     }
 }
 
-// Función para manejar click en "Pedido Realizado"
-function manejarClickCompletar(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    console.log('🎯 Pedido Realizado clickeado');
-    
-    const boton = event.currentTarget;
-    const card = boton.closest('.pedido-card');
-    
-    if (!card) return;
-    
-    const pedidoId = card.dataset.pedidoId;
-    if (!pedidoId) return;
-    
-    // Cambiar botón a estado de carga
-    const textoOriginal = boton.innerHTML;
-    boton.disabled = true;
-    boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    
-    fetch(`/completarPedido/${pedidoId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('✅ Pedido completado');
-            
-            // Eliminar la carta
-            card.style.transition = 'all 0.3s ease';
-            card.style.opacity = '0';
-            card.style.transform = 'scale(0.8)';
-            
-            setTimeout(() => {
-                if (card.parentNode) {
-                    card.remove();
-                    verificarSiQuedanPedidos();
-                }
-            }, 300);
-            
+// 🔥 NUEVA FUNCIÓN: Mostrar mensaje sin pedidos
+function mostrarMensajeSinPedidos() {
+    let fullWidthContainer = document.querySelector('.fullwidth-message-container');
+    if (!fullWidthContainer) {
+        fullWidthContainer = document.createElement('div');
+        fullWidthContainer.className = 'fullwidth-message-container';
+        
+        const containerElement = document.querySelector('.container');
+        const header = document.querySelector('header');
+        
+        if (header && header.nextSibling) {
+            containerElement.insertBefore(fullWidthContainer, header.nextSibling);
         } else {
-            boton.disabled = false;
-            boton.innerHTML = textoOriginal;
+            containerElement.appendChild(fullWidthContainer);
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        boton.disabled = false;
-        boton.innerHTML = textoOriginal;
-    });
+    }
+    
+    fullWidthContainer.innerHTML = `
+        <div class="sin-pedidos-fullwidth">
+            <i class="fas fa-check-circle"></i>
+            <h3>¡No hay pedidos pendientes!</h3>
+            <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
+        </div>
+    `;
 }
 
-// Escuchar cambios en localStorage para otras pestañas
-window.addEventListener('storage', function(e) {
-    if (e.key === 'ultimo_completado') {
-        cargarEstadosIniciales();
-        verificarPedidosCompletados();
+// Agregar estilos
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(-10px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-10px); }
     }
-});
+    
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+        to { opacity: 0; transform: translateY(-10px); }
+    }
+    
+    .feedback-flotante {
+        pointer-events: none;
+    }
+`;
+document.head.appendChild(style);
