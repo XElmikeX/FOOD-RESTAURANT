@@ -257,6 +257,75 @@ function obtenerMesaIdNumerico() {
     return null;
 }
 
+// Agregar esta función al final de Pendientes.js
+function escucharPedidosCompletados() {
+    console.log('👂 Escuchando pedidos completados...');
+    
+    // Escuchar cambios en localStorage
+    window.addEventListener('storage', function(e) {
+        // Detectar cuando otro dispositivo completa un pedido
+        if (e.key === 'ultimo_completado' && e.newValue) {
+            try {
+                const data = JSON.parse(e.newValue);
+                console.log('📡 Pedido completado detectado en otro dispositivo:', data);
+                
+                // Verificar si es de la misma mesa que estamos viendo
+                const mesaActual = obtenerMesaIdNumerico();
+                if (mesaActual && data.mesaId == mesaActual) {
+                    console.log(`🎯 Es de nuestra mesa (${mesaActual}), eliminando pedido ${data.pedidoId}`);
+                    
+                    // Buscar el pedido y eliminarlo
+                    const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                    if (pedidoCard) {
+                        // Verificar que no sea una eliminación reciente
+                        const momentoEliminacion = pedidoCard.dataset.momentoEliminacion;
+                        const ahora = Date.now();
+                        
+                        if (!momentoEliminacion || (ahora - parseInt(momentoEliminacion)) > 2000) {
+                            eliminarPedidoLocal(pedidoCard, data.pedidoId);
+                            mostrarNotificacion('📱 Pedido completado en otro dispositivo', 'info');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error procesando pedido completado:', error);
+            }
+        }
+        
+        // Limpiar pedidos completados antiguos
+        if (e.key === 'pedidos_completados') {
+            // Opcional: recargar para asegurar consistencia
+            setTimeout(() => {
+                cargarEstadosIniciales();
+            }, 1000);
+        }
+    });
+    
+    // También revisar al cargar la página si hay pedidos que ya deberían estar eliminados
+    const completadosKey = 'pedidos_completados';
+    const completados = JSON.parse(localStorage.getItem(completadosKey)) || {};
+    const ahora = Date.now();
+    const mesaActual = obtenerMesaIdNumerico();
+    
+    Object.values(completados).forEach(data => {
+        // Si es de nuestra mesa y es reciente (< 10 segundos)
+        if (data.mesaId == mesaActual && (ahora - data.timestamp) < 10000) {
+            const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+            if (pedidoCard && !pedidoCard.dataset.eliminado) {
+                console.log(`🔄 Eliminando pedido ${data.pedidoId} pendiente de sincronización`);
+                eliminarPedidoLocal(pedidoCard, data.pedidoId);
+            }
+        }
+    });
+}
+
+// Llamar a la función cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    // ... tu código existente ...
+    
+    // Agregar esto al final
+    escucharPedidosCompletados();
+
 function mostrarNotificacion(mensaje, tipo) {
     const notificacionesPrevias = document.querySelectorAll('.notificacion-temp');
     notificacionesPrevias.forEach(n => n.remove());
@@ -364,3 +433,5 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+});
