@@ -1,8 +1,14 @@
 // Variables para control de concurrencia
 let peticionesPendientes = new Map();
 
+// 🔥 NUEVO: Conjunto para trackear pedidos completados en esta sesión
+let pedidosCompletados = new Set();
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Pendientes.js cargado - Con UI inmediata y polling');
+    
+    // Cargar historial de completados al inicio
+    cargarHistorialCompletados();
     
     // Cargar estados iniciales
     cargarEstadosIniciales();
@@ -58,87 +64,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 🔥 NUEVO: Verificar si hay pedidos que ya fueron completados (con retraso para asegurar que el DOM esté listo)
+    // 🔥 Verificar si hay pedidos que ya fueron completados
     setTimeout(() => {
         verificarPedidosCompletadosCarga();
     }, 500);
 });
 
-// 🔥 Feedback visual inmediato
-function mostrarFeedbackVisual(card, nuevoEstado) {
-    card.style.transition = 'all 0.2s ease';
-    card.style.transform = 'scale(1.02)';
-    card.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
+// 🔥 NUEVA FUNCIÓN: Cargar historial de completados
+function cargarHistorialCompletados() {
+    const HISTORIAL_KEY = 'pedidos_completados';
+    const historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
+    const mesaActual = obtenerMesaIdNumerico();
     
-    setTimeout(() => {
-        card.style.transform = 'scale(1)';
-    }, 200);
+    if (!mesaActual) return;
     
-    // Mensaje flotante
-    const mensaje = document.createElement('div');
-    mensaje.className = 'feedback-flotante';
-    mensaje.textContent = nuevoEstado === 'listo' ? '✓ Listo' : 
-                         nuevoEstado === 'proceso' ? '⚙ Proceso' : '⏱ Pendiente';
-    mensaje.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: ${nuevoEstado === 'listo' ? '#27ae60' : nuevoEstado === 'proceso' ? '#f39c12' : '#e74c3c'};
-        color: white;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        font-weight: bold;
-        z-index: 10;
-        animation: fadeInOut 2s ease forwards;
-    `;
-    
-    card.style.position = 'relative';
-    card.appendChild(mensaje);
-    
-    setTimeout(() => {
-        if (mensaje.parentNode) {
-            mensaje.remove();
+    // Agregar al Set los pedidos completados de esta mesa
+    historial.forEach(item => {
+        if (item.mesaId == mesaActual) {
+            pedidosCompletados.add(item.pedidoId);
         }
-    }, 2000);
-}
-
-// 🔥 Aplicar cambios visuales inmediatos
-function aplicarEstadoUI(card, estado) {
-    if (!card || !document.body.contains(card)) return;
-    
-    const header = card.querySelector(".card-header");
-    const botonPendiente = card.querySelector('.btn-pendiente');
-    const botonProceso = card.querySelector('.btn-proceso');
-    const botonListo = card.querySelector('.btn-listo');
-    
-    // Remover clases actuales
-    card.classList.remove('pendiente', 'proceso', 'listo');
-    if (header) {
-        header.classList.remove('pend', 'proce', 'list');
-    }
-    
-    // Remover activo de todos los botones
-    [botonPendiente, botonProceso, botonListo].forEach(btn => {
-        if (btn) btn.classList.remove('activo');
     });
     
-    // Aplicar nuevo estado
-    card.classList.add(estado);
-    
-    if (estado === 'pendiente') {
-        if (header) header.classList.add('pend');
-        if (botonPendiente) botonPendiente.classList.add('activo');
-    } else if (estado === 'proceso') {
-        if (header) header.classList.add('proce');
-        if (botonProceso) botonProceso.classList.add('activo');
-    } else if (estado === 'listo') {
-        if (header) header.classList.add('list');
-        if (botonListo) botonListo.classList.add('activo');
-    }
+    console.log('📋 Pedidos completados cargados:', Array.from(pedidosCompletados));
 }
 
-// 🔥 MODIFICADO: Ahora aplica estados pero respeta cambios recientes
+// 🔥 MODIFICADO: Ignorar pedidos que ya fueron completados
 function cargarEstadosIniciales() {
     const mesaId = obtenerMesaIdNumerico();
     if (!mesaId) return;
@@ -150,6 +100,18 @@ function cargarEstadosIniciales() {
                 console.log('📦 Estados desde servidor:', data.pedidos.length);
                 
                 data.pedidos.forEach(pedidoInfo => {
+                    // 🔥 IMPORTANTE: Si el pedido ya fue completado, ignorarlo
+                    if (pedidosCompletados.has(pedidoInfo.id)) {
+                        console.log(`⏭️ Ignorando pedido completado ${pedidoInfo.id} del servidor`);
+                        
+                        // Asegurar que no esté en el DOM
+                        const cardExistente = document.querySelector(`.pedido-card[data-pedido-id="${pedidoInfo.id}"]`);
+                        if (cardExistente) {
+                            cardExistente.remove();
+                        }
+                        return;
+                    }
+                    
                     const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${pedidoInfo.id}"]`);
                     if (pedidoCard) {
                         // 🔥 IMPORTANTE: Verificar si hubo interacción reciente
@@ -173,6 +135,18 @@ function cargarEstadosIniciales() {
                         }
                     }
                 });
+                
+                // 🔥 Verificar si hay tarjetas en el DOM que no deberían estar
+                document.querySelectorAll('.pedido-card').forEach(card => {
+                    const pedidoId = card.dataset.pedidoId;
+                    if (pedidosCompletados.has(pedidoId)) {
+                        console.log(`🗑️ Eliminando tarjeta huérfana de pedido completado ${pedidoId}`);
+                        card.remove();
+                    }
+                });
+                
+                // Verificar si ya no hay pedidos
+                verificarPedidosRestantes();
             }
         })
         .catch(error => console.error('Error cargando estados:', error));
@@ -310,19 +284,17 @@ function mostrarNotificacion(mensaje, tipo) {
     }, 3000);
 }
 
-// 🔥 NUEVO: Escuchar cambios de localStorage (para otras pestañas)
+// 🔥 MODIFICADO: Escuchar cambios de localStorage
 window.addEventListener('storage', function(e) {
     if (e.key === 'ultimo_cambio' && e.newValue) {
         try {
             const data = JSON.parse(e.newValue);
             console.log('📡 Cambio detectado en otra pestaña:', data);
             
-            // Solo procesar si es de la misma mesa que estamos viendo
             const mesaActual = obtenerMesaIdNumerico();
             if (mesaActual && data.mesaId == mesaActual) {
                 const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
                 if (pedidoCard) {
-                    // Verificar que no haya interacción reciente
                     const ultimaInteraccion = pedidoCard.dataset.ultimaInteraccion;
                     const ahora = Date.now();
                     
@@ -344,7 +316,6 @@ window.addEventListener('storage', function(e) {
         }
     }
     
-    // 🔥 NUEVO: Escuchar también los pedidos completados
     if (e.key === 'pedido_completado' && e.newValue) {
         try {
             const data = JSON.parse(e.newValue);
@@ -352,11 +323,13 @@ window.addEventListener('storage', function(e) {
             
             const mesaActual = obtenerMesaIdNumerico();
             if (mesaActual && data.mesaId == mesaActual) {
+                // 🔥 Agregar al Set de completados
+                pedidosCompletados.add(data.pedidoId);
+                
                 const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
                 if (card) {
                     console.log(`🗑️ Eliminando pedido ${data.pedidoId} por solicitud de otro dispositivo`);
                     
-                    // Animar y eliminar
                     card.style.transition = 'all 0.3s ease';
                     card.style.opacity = '0';
                     card.style.transform = 'scale(0.8)';
@@ -377,7 +350,7 @@ window.addEventListener('storage', function(e) {
     }
 });
 
-// 🔥 NUEVA FUNCIÓN: Verificar pedidos completados al cargar
+// 🔥 MODIFICADO: Verificar pedidos completados al cargar
 function verificarPedidosCompletadosCarga() {
     const HISTORIAL_KEY = 'pedidos_completados';
     const historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
@@ -389,6 +362,9 @@ function verificarPedidosCompletadosCarga() {
     
     historial.forEach(item => {
         if (item.mesaId == mesaActual) {
+            // 🔥 Agregar al Set
+            pedidosCompletados.add(item.pedidoId);
+            
             const card = document.querySelector(`.pedido-card[data-pedido-id="${item.pedidoId}"]`);
             if (card) {
                 console.log(`🗑️ Eliminando pedido completado ${item.pedidoId} al cargar`);
@@ -397,11 +373,9 @@ function verificarPedidosCompletadosCarga() {
         }
     });
     
-    // Verificar si ya no hay pedidos
     verificarPedidosRestantes();
 }
 
-// 🔥 NUEVA FUNCIÓN: Verificar si quedan pedidos y mostrar mensaje
 function verificarPedidosRestantes() {
     const pedidosRestantes = document.querySelectorAll('.pedido-card');
     console.log(`📋 Pedidos restantes: ${pedidosRestantes.length}`);
@@ -418,7 +392,6 @@ function verificarPedidosRestantes() {
             container.style.display = 'grid';
         }
         
-        // Ocultar mensaje si existe
         const mensajeContainer = document.querySelector('.fullwidth-message-container');
         if (mensajeContainer) {
             mensajeContainer.remove();
@@ -426,7 +399,6 @@ function verificarPedidosRestantes() {
     }
 }
 
-// 🔥 NUEVA FUNCIÓN: Mostrar mensaje sin pedidos
 function mostrarMensajeSinPedidos() {
     let fullWidthContainer = document.querySelector('.fullwidth-message-container');
     if (!fullWidthContainer) {
@@ -450,6 +422,75 @@ function mostrarMensajeSinPedidos() {
             <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
         </div>
     `;
+}
+
+// 🔥 Feedback visual inmediato
+function mostrarFeedbackVisual(card, nuevoEstado) {
+    card.style.transition = 'all 0.2s ease';
+    card.style.transform = 'scale(1.02)';
+    card.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
+    
+    setTimeout(() => {
+        card.style.transform = 'scale(1)';
+    }, 200);
+    
+    const mensaje = document.createElement('div');
+    mensaje.className = 'feedback-flotante';
+    mensaje.textContent = nuevoEstado === 'listo' ? '✓ Listo' : 
+                         nuevoEstado === 'proceso' ? '⚙ Proceso' : '⏱ Pendiente';
+    mensaje.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: ${nuevoEstado === 'listo' ? '#27ae60' : nuevoEstado === 'proceso' ? '#f39c12' : '#e74c3c'};
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        z-index: 10;
+        animation: fadeInOut 2s ease forwards;
+    `;
+    
+    card.style.position = 'relative';
+    card.appendChild(mensaje);
+    
+    setTimeout(() => {
+        if (mensaje.parentNode) {
+            mensaje.remove();
+        }
+    }, 2000);
+}
+
+function aplicarEstadoUI(card, estado) {
+    if (!card || !document.body.contains(card)) return;
+    
+    const header = card.querySelector(".card-header");
+    const botonPendiente = card.querySelector('.btn-pendiente');
+    const botonProceso = card.querySelector('.btn-proceso');
+    const botonListo = card.querySelector('.btn-listo');
+    
+    card.classList.remove('pendiente', 'proceso', 'listo');
+    if (header) {
+        header.classList.remove('pend', 'proce', 'list');
+    }
+    
+    [botonPendiente, botonProceso, botonListo].forEach(btn => {
+        if (btn) btn.classList.remove('activo');
+    });
+    
+    card.classList.add(estado);
+    
+    if (estado === 'pendiente') {
+        if (header) header.classList.add('pend');
+        if (botonPendiente) botonPendiente.classList.add('activo');
+    } else if (estado === 'proceso') {
+        if (header) header.classList.add('proce');
+        if (botonProceso) botonProceso.classList.add('activo');
+    } else if (estado === 'listo') {
+        if (header) header.classList.add('list');
+        if (botonListo) botonListo.classList.add('activo');
+    }
 }
 
 // Agregar estilos
