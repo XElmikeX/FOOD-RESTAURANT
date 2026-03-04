@@ -1,95 +1,89 @@
-const STORAGE_KEY = 'estados_mesas_cocina';
+// Mozo.js - Versión actualizada con badge de completado
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Mozo.js cargado');
+    console.log('Mozo.js cargado - Versión BD');
     
-    // Cargar estados iniciales
+    // Cargar estados iniciales desde BD
     cargarEstadosPedidos();
     
-    // Escuchar cambios en localStorage (para actualizar cuando Facturero elimine datos)
-    window.addEventListener('storage', function(e) {
-        if (e.key === STORAGE_KEY) {
-            console.log('Cambios detectados en localStorage, actualizando...');
-            cargarEstadosPedidos();
-        }
-    });
-    
-    // Escuchar evento personalizado de facturación
-    window.addEventListener('mesaFacturada', function(e) {
-        console.log('Mesa facturada:', e.detail.mesaId);
+    // Escuchar evento personalizado de actualización de pedidos
+    window.addEventListener('pedidoActualizado', function(e) {
+        console.log('Pedido actualizado en mesa:', e.detail.mesaId);
         cargarEstadosPedidos();
     });
     
-    // Actualizar cada 3 segundos como respaldo
+    // Escuchar evento personalizado de facturación
+    window.addEventListener('pedidoFacturado', function(e) {
+        console.log('Pedido facturado:', e.detail.mesaId);
+        cargarEstadosPedidos();
+    });
+    
+    // Actualizar cada 3 segundos
     setInterval(cargarEstadosPedidos, 3000);
 });
 
 function cargarEstadosPedidos() {
-    console.log('Cargando estados de pedidos...');
+    console.log('Cargando estados de pedidos desde BD...');
     
-    // Obtener estados guardados
-    const estadosGuardados = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    
-    console.log('📦 Datos en localStorage:', estadosGuardados);
-    
-    // Organizar mesas con pedidos
-    const mesasActivas = [];
-    let totalProceso = 0;
-    let totalListo = 0;
-    
-    // Procesar cada mesa
-    Object.keys(estadosGuardados).forEach(key => {
-        const mesaData = estadosGuardados[key];
-        
-        // ✅ CAMBIO IMPORTANTE: Procesar SIEMPRE que tenga pedidos, sin importar el estado
-        if (mesaData.pedidos && mesaData.pedidos.length > 0) {
-            
-            // Contar pedidos por estado
-            const pedidosProceso = mesaData.pedidos.filter(p => p.estado === 'proceso').length;
-            const pedidosListo = mesaData.pedidos.filter(p => p.estado === 'listo').length;
-            
-            totalProceso += pedidosProceso;
-            totalListo += pedidosListo;
-            
-            // ✅ Agregar la mesa SIEMPRE (aunque todos los pedidos estén pendientes)
-            mesasActivas.push({
-                mesaId: key,
-                id: mesaData.id || key,
-                nombre: mesaData.nombre || 'Mesa',
-                timestamp: mesaData.timestamp,
-                pedidos: mesaData.pedidos, // Aquí están TODOS los 4 pedidos
-                stats: {
-                    proceso: pedidosProceso,
-                    listo: pedidosListo,
-                    total: mesaData.pedidos.length // Total correcto: 4
-                }
-            });
-        } else {
-            // Si no tiene pedidos, eliminar del localStorage
-            delete estadosGuardados[key];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(estadosGuardados));
-        }
-    });
-    
-    console.log('✅ Mesas activas procesadas:', mesasActivas);
-    
-    // Actualizar contadores
-    actualizarContadores(totalProceso, totalListo, mesasActivas.length);
-    
-    // Mostrar mesas activas (TU FUNCIÓN ORIGINAL SIN CAMBIOS)
-    mostrarMesasActivas(mesasActivas);
-    
-    // Actualizar indicadores en las mesas
-    actualizarIndicadoresMesas(estadosGuardados);
+    fetch('/api/pedidos/todas-mesas-estados')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('📦 Datos recibidos de BD:', data);
+                
+                // Procesar mesas con pedidos activos (solo donde el cocinero interactuó)
+                const mesasActivas = [];
+                let totalProceso = 0;
+                let totalListo = 0;
+                let totalCompletado = 0;
+                
+                data.mesas.forEach(mesa => {
+                    const estados = mesa.estados;
+                    
+                    // Contar proceso, listo y completado para los badges
+                    mesasActivas.push({
+                        mesaId: String(mesa.id),
+                        id: mesa.id,
+                        nombre: mesa.nombre || 'Mesa',
+                        timestamp: mesa.timestamp || new Date().toISOString(),
+                        pedidos: mesa.pedidos || [],
+                        stats: {
+                            proceso: estados.proceso || 0,
+                            listo: estados.listo || 0,
+                            completado: estados.completado || 0,
+                            total: mesa.totalPedidos || 0  // Este total incluye TODOS (pendiente,proceso,listo,completado)
+                        }
+                    });
+                    
+                    totalProceso += estados.proceso || 0;
+                    totalListo += estados.listo || 0;
+                    totalCompletado += estados.completado || 0;
+                });
+                
+                console.log('✅ Mesas activas procesadas:', mesasActivas);
+                
+                // Actualizar contadores
+                actualizarContadores(totalProceso, totalListo, totalCompletado, mesasActivas.length);
+                
+                // Mostrar mesas activas
+                mostrarMesasActivas(mesasActivas);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error cargando estados:', error);
+            mostrarMensajeError();
+        });
 }
 
-function actualizarContadores(procesoCount, listoCount, totalMesas) {
+function actualizarContadores(procesoCount, listoCount, completadoCount, totalMesas) {
     const procesoElement = document.getElementById('total-pedidos-proceso');
     const listoElement = document.getElementById('total-pedidos-listo');
+    const completadoElement = document.getElementById('total-pedidos-completado');
     const totalActivasElement = document.getElementById('total-mesas-activas');
     
     if (procesoElement) procesoElement.textContent = procesoCount;
     if (listoElement) listoElement.textContent = listoCount;
+    if (completadoElement) completadoElement.textContent = completadoCount;
     if (totalActivasElement) totalActivasElement.textContent = totalMesas;
 }
 
@@ -111,7 +105,7 @@ function mostrarMesasActivas(mesasActivas) {
     // Limpiar container
     container.innerHTML = '';
     
-    // Mostrar cada mesa activa
+    // Ordenar por timestamp (más reciente primero)
     mesasActivas.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
     mesasActivas.forEach(mesa => {
@@ -128,11 +122,12 @@ function mostrarMesasActivas(mesasActivas) {
         card.dataset.mesaId = mesa.mesaId;
         card.onclick = () => verDetallesMesa(mesa.mesaId);
         
-        // Badge de estadísticas
+        // Badge de estadísticas - proceso, listo y completado
         const statsBadge = `
             <div class="mesa-stats-badge">
                 <span class="badge-proceso">🔄 ${mesa.stats.proceso}</span>
                 <span class="badge-listo">✅ ${mesa.stats.listo}</span>
+                <span class="badge-completado">✔️ ${mesa.stats.completado}</span>
             </div>
         `;
         
@@ -143,7 +138,7 @@ function mostrarMesasActivas(mesasActivas) {
                     <div class="mesa-nombre">${mesa.nombre}</div>
                 </div>
                 <div class="mesa-activa-hora">
-                    ${horaPedido}
+                    <i class="far fa-clock"></i> ${horaPedido}
                 </div>
             </div>
             <div class="mesa-activa-body">
@@ -151,7 +146,7 @@ function mostrarMesasActivas(mesasActivas) {
             </div>
             <div class="mesa-activa-footer">
                 <button class="btn-ver-pedidos" onclick="event.stopPropagation(); verDetallesMesa('${mesa.mesaId}')">
-                    <i class="fas fa-eye"></i> Ver todos (${mesa.pedidos.length})
+                    <i class="fas fa-eye"></i> Ver todos (${mesa.stats.total})
                 </button>
             </div>
         `;
@@ -160,67 +155,38 @@ function mostrarMesasActivas(mesasActivas) {
     });
 }
 
-function actualizarIndicadoresMesas(estadosGuardados) {
-    // Actualizar indicadores en las cards de las mesas
-    document.querySelectorAll('.card').forEach(card => {
-        const mesaId = card.dataset.mesaId;
-        let indicador = card.querySelector('.estado-indicador');
-        
-        if (!indicador) {
-            indicador = document.createElement('div');
-            indicador.className = 'estado-indicador';
-            card.appendChild(indicador);
-        }
-        
-        if (estadosGuardados[mesaId] && estadosGuardados[mesaId].pedidos) {
-            const pedidos = estadosGuardados[mesaId].pedidos;
-            const tieneListo = pedidos.some(p => p.estado === 'listo');
-            const tieneProceso = pedidos.some(p => p.estado === 'proceso');
-            
-            if (tieneListo) {
-                indicador.className = 'estado-indicador estado-listo';
-                indicador.innerHTML = '<i class="fas fa-check-circle"></i> Hay listos';
-            } else if (tieneProceso) {
-                indicador.className = 'estado-indicador estado-proceso';
-                indicador.innerHTML = '<i class="fas fa-spinner fa-spin"></i> En proceso';
-            }else {
-                indicador.innerHTML = '';
-                indicador.className = 'estado-indicador';
-            }
-        } else {
-            indicador.innerHTML = '';
-            indicador.className = 'estado-indicador';
-        }
-    });
-}
-
 function verDetallesMesa(mesaId) {
     console.log('Viendo detalles de mesa:', mesaId);
     
-    const estadosGuardados = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    const mesaData = estadosGuardados[mesaId];
-    
-    if (!mesaData) {
-        mostrarNotificacion('No hay datos para esta mesa', 'error');
-        return;
-    }
-    
-    const mesaNumero = mesaData.nombre || mesaId;
-    
-    // Actualizar modal
-    document.getElementById('modalMesaNombre').textContent = `Mesa ${mesaNumero}`;
+    fetch(`/api/pedidos/estados-mesa/${mesaId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarModalDetalle(data);
+            } else {
+                mostrarNotificacion('Error al cargar detalles', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('Error de conexión', 'error');
+        });
+}
+
+function mostrarModalDetalle(data) {
+    document.getElementById('modalMesaNombre').textContent = `Mesa ${data.numeroMesa}`;
     
     const modalContainer = document.getElementById('modalPedidosContainer');
     modalContainer.innerHTML = '';
     
-    if (mesaData.pedidos.length === 0) {
+    if (data.pedidos.length === 0) {
         modalContainer.innerHTML = '<div class="sin-pedidos"><i class="fas fa-info-circle"></i><p>No hay pedidos para esta mesa</p></div>';
     } else {
-        // Ordenar pedidos: pendiente primero, luego proceso, luego listo
-        const pedidosOrdenados = [...mesaData.pedidos].sort((a, b) => {
-            const orden = { 'pendiente': 1, 'proceso': 2, 'listo': 3 };
-            return (orden[a.estado] || 4) - (orden[b.estado] || 4);
-        });
+        // Ordenar pedidos: pendiente, proceso, listo, completado
+        const orden = { 'pendiente': 1, 'proceso': 2, 'listo': 3, 'completado': 4 };
+        const pedidosOrdenados = [...data.pedidos].sort((a, b) => 
+            (orden[a.estado] || 5) - (orden[b.estado] || 5)
+        );
         
         pedidosOrdenados.forEach(pedido => {
             const pedidoElement = document.createElement('div');
@@ -247,6 +213,11 @@ function verDetallesMesa(mesaId) {
                     textoEstado = 'Pendiente';
                     colorEstado = '#e74c3c';
                     break;
+                case 'completado':
+                    icono = 'fa-check-double';
+                    textoEstado = 'Completado';
+                    colorEstado = '#95a5a6';
+                    break;
                 default:
                     icono = 'fa-question-circle';
                     textoEstado = 'Desconocido';
@@ -254,16 +225,27 @@ function verDetallesMesa(mesaId) {
             }
             
             // Formatear la hora
-            const horaPedido = pedido.timestamp ? new Date(pedido.timestamp).toLocaleTimeString('es-ES', {
+            const horaPedido = pedido.hora ? new Date(pedido.hora).toLocaleTimeString('es-ES', {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: true
             }) : 'N/A';
             
+            // Si está completado, mostrar también hora de completado
+            const horaCompletadoHtml = pedido.horaCompletado ? `
+                <span class="hora-pedido" style="margin-left: 10px;">
+                    <i class="fas fa-check-circle"></i> ${new Date(pedido.horaCompletado).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    })}
+                </span>
+            ` : '';
+            
             pedidoElement.innerHTML = `
                 <div class="modal-pedido-header">
-                    <span class="modal-pedido-nombre">${pedido.producto || 'Producto'}</span>
-                    <span class="modal-pedido-cantidad">${pedido.cantidad || 'x1'}</span>
+                    <span class="modal-pedido-nombre">${pedido.producto}</span>
+                    <span class="modal-pedido-cantidad">${pedido.cantidad}</span>
                 </div>
                 ${pedido.nota ? `
                     <div class="modal-pedido-nota">
@@ -271,32 +253,41 @@ function verDetallesMesa(mesaId) {
                     </div>
                 ` : ''}
                 <div class="modal-pedido-footer">
-                    <span class="estado-badge ${pedido.estado}" style="background: ${colorEstado}; color: ${pedido.estado === 'proceso' ? '#000' : '#fff'};">
+                    <span class="estado-badge ${pedido.estado}" style="background: ${colorEstado}; color: ${pedido.estado === 'proceso' ? '#000' : '#fff'}; padding: 3px 10px; border-radius: 15px;">
                         <i class="fas ${icono}"></i>
                         ${textoEstado}
                     </span>
                     <span class="hora-pedido">
                         <i class="far fa-clock"></i> ${horaPedido}
                     </span>
+                    ${horaCompletadoHtml}
                 </div>
             `;
             
             modalContainer.appendChild(pedidoElement);
         });
         
-        // Agregar contador de total de pedidos
-        const totalPedidos = document.createElement('div');
-        totalPedidos.className = 'modal-total-pedidos';
-        totalPedidos.innerHTML = `
+        // Agregar resumen
+        const resumen = document.createElement('div');
+        resumen.className = 'modal-total-pedidos';
+        
+        // Calcular estadísticas
+        const pendientes = data.pedidos.filter(p => p.estado === 'pendiente').length;
+        const procesos = data.pedidos.filter(p => p.estado === 'proceso').length;
+        const listos = data.pedidos.filter(p => p.estado === 'listo').length;
+        const completados = data.pedidos.filter(p => p.estado === 'completado' || p.completado === true).length;
+        
+        resumen.innerHTML = `
             <hr>
             <p style="text-align: center; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-                <strong>Total de pedidos: ${mesaData.pedidos.length}</strong> 
-                (Pendientes: ${mesaData.pedidos.filter(p => p.estado === 'pendiente').length} | 
-                En Proceso: ${mesaData.pedidos.filter(p => p.estado === 'proceso').length} | 
-                Listos: ${mesaData.pedidos.filter(p => p.estado === 'listo').length})
+                <strong>Total: ${data.pedidos.length} pedidos</strong> 
+                (Pendientes: ${pendientes} | 
+                En Proceso: ${procesos} | 
+                Listos: ${listos} | 
+                Completados: ${completados})
             </p>
         `;
-        modalContainer.appendChild(totalPedidos);
+        modalContainer.appendChild(resumen);
     }
     
     // Mostrar modal
@@ -320,6 +311,18 @@ function mostrarNotificacion(mensaje, tipo) {
     notificacion.className = `notificacion-temp ${tipo}`;
     notificacion.innerHTML = mensaje;
     
+    let colorFondo;
+    switch(tipo) {
+        case 'success':
+            colorFondo = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            break;
+        case 'error':
+            colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            break;
+        default:
+            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
+    }
+    
     notificacion.style.cssText = `
         position: fixed;
         top: 20px;
@@ -331,10 +334,15 @@ function mostrarNotificacion(mensaje, tipo) {
         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         z-index: 9999;
         animation: slideIn 0.3s ease;
-        ${tipo === 'success' ? 'background: linear-gradient(135deg, #27ae60, #2ecc71);' : 
-          tipo === 'error' ? 'background: linear-gradient(135deg, #e74c3c, #c0392b);' : 
-          'background: linear-gradient(135deg, #3498db, #2980b9);'}
+        background: ${colorFondo};
+        display: flex;
+        align-items: center;
+        gap: 10px;
     `;
+    
+    const icono = document.createElement('i');
+    icono.className = `fas ${tipo === 'success' ? 'fa-check-circle' : tipo === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}`;
+    notificacion.insertBefore(icono, notificacion.firstChild);
     
     document.body.appendChild(notificacion);
     
@@ -342,4 +350,94 @@ function mostrarNotificacion(mensaje, tipo) {
         notificacion.style.animation = 'fadeOut 0.3s ease';
         setTimeout(() => notificacion.remove(), 300);
     }, 3000);
+}
+
+function mostrarMensajeError() {
+    const container = document.getElementById('mesasActivasContainer');
+    const sinPedidos = document.getElementById('sinPedidosActivos');
+    
+    if (container && sinPedidos) {
+        sinPedidos.style.display = 'block';
+        sinPedidos.innerHTML = `
+            <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+            <h3>Error de conexión</h3>
+            <p>No se pudieron cargar los pedidos. Verifica tu conexión.</p>
+        `;
+        container.innerHTML = '';
+        container.appendChild(sinPedidos);
+    }
+}
+
+// Agregar estilos para los badges
+if (!document.querySelector('#badge-styles')) {
+    const style = document.createElement('style');
+    style.id = 'badge-styles';
+    style.textContent = `
+        .badge-pendiente {
+            background: #e74c3c;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .badge-proceso {
+            background: #f39c12;
+            color: #000;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .badge-listo {
+            background: #27ae60;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .badge-completado {
+            background: #95a5a6;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .mesa-stats-badge {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 10px 0;
+            padding: 5px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+            flex-wrap: wrap;
+        }
+        
+        .modal-pedido-item.estado-completado {
+            border-left-color: #95a5a6;
+            opacity: 0.8;
+            background: #f8f9fa;
+        }
+        
+        .modal-pedido-item.estado-completado .modal-pedido-nombre {
+            text-decoration: line-through;
+            text-decoration-color: #7f8c8d;
+        }
+        
+        /* Responsive para badges */
+        @media (max-width: 768px) {
+            .mesa-stats-badge {
+                gap: 5px;
+            }
+            .badge-proceso, .badge-listo, .badge-completado {
+                padding: 2px 6px;
+                font-size: 0.7em;
+            }
+        }
+    `;
+    document.head.appendChild(style);
 }

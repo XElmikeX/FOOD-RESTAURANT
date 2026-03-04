@@ -768,3 +768,62 @@ body {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
+.estado-completado {
+    background: #95a5a6 !important;
+    color: white;
+}
+
+.modal-pedido-item.estado-completado {
+    border-left-color: #95a5a6;
+    opacity: 0.8;
+}
+
+.modal-pedido-item.estado-completado .modal-pedido-nombre {
+    text-decoration: line-through;
+    text-decoration-color: #7f8c8d;
+}
+
+.badge-completado {
+    background: #95a5a6;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.mesa-stats-badge .badge-completado {
+    background: #95a5a6;
+    color: white;
+}
+
+/* Agregar a Mozo.css */
+.badge-completado {
+    background: #95a5a6;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.mesa-stats-badge .badge-completado {
+    background: #95a5a6;
+    color: white;
+}
+
+.modal-pedido-item.estado-completado {
+    border-left-color: #95a5a6;
+    opacity: 0.8;
+    background: #f8f9fa;
+}
+
+.modal-pedido-item.estado-completado .modal-pedido-nombre {
+    text-decoration: line-through;
+    text-decoration-color: #7f8c8d;
+}
+
+.estado-badge.completado {
+    background: #95a5a6 !important;
+    color: white !important;
+}

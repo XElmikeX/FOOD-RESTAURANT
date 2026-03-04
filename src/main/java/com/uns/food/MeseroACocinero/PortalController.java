@@ -61,60 +61,64 @@ public class PortalController {
 
     @PostMapping("/cocinero")
     public String enviarMenuACocinero(
-    @RequestParam String datosPedido,
-    @RequestParam String idMesa) {
-    
-    try {     
-        ObjectMapper mapper = new ObjectMapper();
-        List<PedidoDTO> pedidosDTO = mapper.readValue(
-            datosPedido, 
-            new TypeReference<List<PedidoDTO>>() {}
-        );
+        @RequestParam String datosPedido,
+        @RequestParam String idMesa) {
         
-        Optional<Mesas> mesaOpt = mesasRepository.findById(Long.parseLong(idMesa));
-        
-        if (mesaOpt.isPresent()) {
-            Mesas mesa = mesaOpt.get();
-        
-            mesa.setPendiente(true);
-            mesasRepository.save(mesa);
+        try {     
+            ObjectMapper mapper = new ObjectMapper();
+            List<PedidoDTO> pedidosDTO = mapper.readValue(
+                datosPedido, 
+                new TypeReference<List<PedidoDTO>>() {}
+            );
             
-            for (PedidoDTO pedidoDTO : pedidosDTO) {
+            Optional<Mesas> mesaOpt = mesasRepository.findById(Long.parseLong(idMesa));
+            
+            if (mesaOpt.isPresent()) {
+                Mesas mesa = mesaOpt.get();
+            
+                mesa.setPendiente(true);
+                mesasRepository.save(mesa);
                 
-                try {
-                    Long comidaId = Long.parseLong(pedidoDTO.getComidaId());
-                    Optional<Foods> comidaOpt = foodsRepository.findById(comidaId);
+                for (PedidoDTO pedidoDTO : pedidosDTO) {
                     
-                    if (comidaOpt.isPresent()) {
-                        Foods comida = comidaOpt.get();
+                    try {
+                        Long comidaId = Long.parseLong(pedidoDTO.getComidaId());
+                        Optional<Foods> comidaOpt = foodsRepository.findById(comidaId);
                         
-                        Pedidos pedido = new Pedidos();
-                        pedido.setComida(comida);
-                        pedido.setCantidad(pedidoDTO.getCantidad());
-                        pedido.setNota(pedidoDTO.getNota());
-                        pedido.setMesa(mesa);
-                        pedido.setPrecioUnitario(comida.getPrecio());
-                        pedido.setPrecioTotal(comida.getPrecio() * pedidoDTO.getCantidad());
-                        
-                        pedidosRepository.save(pedido);
-                    } else {
-                        System.err.println("Comida no encontrada con ID: " + pedidoDTO.getComidaId());
+                        if (comidaOpt.isPresent()) {
+                            Foods comida = comidaOpt.get();
+                            
+                            Pedidos pedido = new Pedidos();
+                            pedido.setComida(comida);
+                            pedido.setCantidad(pedidoDTO.getCantidad());
+                            pedido.setNota(pedidoDTO.getNota());
+                            pedido.setMesa(mesa);
+                            pedido.setPrecioUnitario(comida.getPrecio());
+                            pedido.setPrecioTotal(comida.getPrecio() * pedidoDTO.getCantidad());
+                            pedido.setEstado("pendiente");
+                            
+                            // 🔥 AQUÍ DEBES AGREGAR ESTA LÍNEA 🔥
+                            pedido.setCocineroInteractuo(false); // Inicialmente el cocinero NO ha interactuado
+                            
+                            pedidosRepository.save(pedido);
+                        } else {
+                            System.err.println("Comida no encontrada con ID: " + pedidoDTO.getComidaId());
+                        }
+                    } catch (NumberFormatException e) {
+                        System.err.println("Error al parsear comidaId: " + pedidoDTO.getComidaId());
                     }
-                } catch (NumberFormatException e) {
-                    System.err.println("Error al parsear comidaId: " + pedidoDTO.getComidaId());
                 }
+            } else {
+                System.err.println("Mesa no encontrada con ID: " + idMesa);
             }
-        } else {
-            System.err.println("Mesa no encontrada con ID: " + idMesa);
+            
+        } catch (Exception e) {
+            System.err.println("Error al guardar pedidos: " + e.getMessage());
+            e.printStackTrace();
         }
         
-    } catch (Exception e) {
-        System.err.println("Error al guardar pedidos: " + e.getMessage());
-        e.printStackTrace();
+        return "redirect:/Rol/Mozo";
     }
-    
-    return "redirect:/Rol/Mozo";
-}
 
     // Clase DTO para recibir los pedidos desde JavaScript
     public static class PedidoDTO {
@@ -199,28 +203,48 @@ public class PortalController {
 
     @PostMapping("/completarPedido/{pedidoId}")
     @ResponseBody
-    public ResponseEntity<String> completarPedido(@PathVariable("pedidoId") Long pedidoId) {
+    public ResponseEntity<Map<String, Object>> completarPedido(@PathVariable("pedidoId") Long pedidoId) {
         
-        Optional<Pedidos> pedidoOpt = pedidosRepository.findById(pedidoId);
+        Map<String, Object> response = new HashMap<>();
         
-        if (!pedidoOpt.isPresent()) {
-            return ResponseEntity.status(404).body("Pedido no encontrado");
+        try {
+            Optional<Pedidos> pedidoOpt = pedidosRepository.findById(pedidoId);
+            
+            if (!pedidoOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "Pedido no encontrado");
+                return ResponseEntity.status(404).body(response);
+            }
+            
+            Pedidos pedido = pedidoOpt.get();
+            Long mesaId = pedido.getMesa().getId();
+            
+            pedido.setCompletado(true);
+            pedido.setHoraCompletado(LocalDateTime.now());
+            pedidosRepository.save(pedido);
+            
+            // Verificar si quedan pedidos pendientes en la mesa
+            List<Pedidos> pedidosRestantes = pedidosRepository.findByMesaIdAndCompletadoFalse(mesaId);
+            
+            if (pedidosRestantes.isEmpty()) {
+                Mesas mesa = pedido.getMesa();
+                mesa.setPendiente(false);
+                mesasRepository.save(mesa);
+            }
+            
+            response.put("success", true);
+            response.put("message", "Pedido completado exitosamente");
+            response.put("pedidoId", pedidoId);
+            response.put("mesaId", mesaId);
+            response.put("pedidosRestantes", pedidosRestantes.size());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error al completar pedido: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
         }
-        
-        Pedidos pedido = pedidoOpt.get();
-        pedido.setCompletado(true);
-        pedido.setHoraCompletado(LocalDateTime.now());
-        pedidosRepository.save(pedido);
-        
-        List<Pedidos> pedidosRestantes = pedidosRepository.findByMesaIdAndCompletadoFalse(pedido.getMesa().getId());
-        
-        if (pedidosRestantes.isEmpty()) {
-            Mesas mesa = pedido.getMesa();
-            mesa.setPendiente(false);
-            mesasRepository.save(mesa);
-        }
-        
-        return ResponseEntity.ok("Pedido completado exitosamente");
     }
 
     @GetMapping("/Rol/Facturero")
@@ -488,4 +512,5 @@ public class PortalController {
             this.total = total; 
         }
     }
+
 }

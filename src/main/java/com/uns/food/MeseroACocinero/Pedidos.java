@@ -1,4 +1,3 @@
-// Pedidos.java - Modificado para incluir precio y timestamp de completado
 package com.uns.food.MeseroACocinero;
 
 import java.time.LocalDateTime;
@@ -36,12 +35,20 @@ public class Pedidos {
 
     private boolean completado = false;
     
-    // Nuevos campos para facturación
+    // CAMPO PARA ESTADO DEL PEDIDO
+    private String estado; // "pendiente", "proceso", "listo"
+    
+    // 🔥 NUEVO CAMPO: Indica si el cocinero ya interactuó con este pedido
+    private Boolean cocineroInteractuo = false; // false por defecto
+    
+    // Campos para facturación
     private Double precioUnitario;
     private Double precioTotal;
     
     // Constructores
     public Pedidos() {
+        this.estado = "pendiente";
+        this.cocineroInteractuo = false; // Inicialmente el cocinero no ha interactuado
     }
     
     public Pedidos(Foods comida, int cantidad, String nota, Mesas mesa) {
@@ -49,6 +56,8 @@ public class Pedidos {
         this.cantidad = cantidad;
         this.nota = nota;
         this.mesa = mesa;
+        this.estado = "pendiente";
+        this.cocineroInteractuo = false; // Inicialmente el cocinero no ha interactuado
         if (comida != null) {
             this.precioUnitario = comida.getPrecio();
             this.precioTotal = comida.getPrecio() * cantidad;
@@ -70,7 +79,7 @@ public class Pedidos {
         this.comida = comida;
         if (comida != null) {
             this.precioUnitario = comida.getPrecio();
-            this.precioTotal = comida.getPrecio() * this.cantidad;
+            this.precioTotal = this.precioUnitario * this.cantidad;
         }
     }
 
@@ -120,7 +129,25 @@ public class Pedidos {
         }
     }
     
-    // Nuevos getters y setters
+    // Getter y Setter para ESTADO
+    public String getEstado() {
+        return estado;
+    }
+    
+    public void setEstado(String estado) {
+        this.estado = estado;
+    }
+    
+    // 🔥 NUEVOS GETTER Y SETTER PARA COCINERO_INTERACTUO
+    public Boolean getCocineroInteractuo() {
+        return cocineroInteractuo;
+    }
+    
+    public void setCocineroInteractuo(Boolean cocineroInteractuo) {
+        this.cocineroInteractuo = cocineroInteractuo;
+    }
+    
+    // Getters y setters para precios
     public Double getPrecioUnitario() {
         return precioUnitario;
     }
