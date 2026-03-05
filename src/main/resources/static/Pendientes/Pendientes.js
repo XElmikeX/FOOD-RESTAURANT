@@ -1,31 +1,8 @@
 // Variables para control de concurrencia
 let peticionesPendientes = new Map();
 
-// 🔥 NUEVO: Conjunto para trackear pedidos completados en esta sesión
-let pedidosCompletados = new Set();
-
-// 🔥 NUEVO: Escuchar también el evento personalizado
-window.addEventListener('pedidoCompletadoLocal', function(e) {
-    console.log('📡 Evento pedidoCompletadoLocal recibido en Pendientes.js:', e.detail);
-    const { pedidoId, mesaId } = e.detail;
-    
-    const mesaActual = obtenerMesaIdNumerico();
-    if (mesaActual && mesaActual == mesaId) {
-        pedidosCompletados.add(pedidoId);
-        
-        const card = document.querySelector(`.pedido-card[data-pedido-id="${pedidoId}"]`);
-        if (card) {
-            card.remove();
-            verificarPedidosRestantes();
-        }
-    }
-});
-
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Pendientes.js cargado - Con UI inmediata y polling');
-    
-    // Cargar historial de completados al inicio
-    cargarHistorialCompletados();
     
     // Cargar estados iniciales
     cargarEstadosIniciales();
@@ -48,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Verificar si hay peticiones en curso
             if (peticionesPendientes.has(pedidoId)) {
                 console.log(`⏳ Ya hay una petición para pedido ${pedidoId}`);
+                mostrarNotificacion('Procesando...', 'info');
                 return;
             }
             
@@ -79,32 +57,83 @@ document.addEventListener('DOMContentLoaded', function() {
             actualizarEstadoPedido(pedidoId, nuevoEstado, card);
         });
     });
-    
-    // 🔥 Verificar si hay pedidos que ya fueron completados
-    setTimeout(() => {
-        verificarPedidosCompletadosCarga();
-    }, 500);
 });
 
-// 🔥 NUEVA FUNCIÓN: Cargar historial de completados
-function cargarHistorialCompletados() {
-    const HISTORIAL_KEY = 'pedidos_completados';
-    const historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
-    const mesaActual = obtenerMesaIdNumerico();
+// 🔥 Feedback visual inmediato
+function mostrarFeedbackVisual(card, nuevoEstado) {
+    card.style.transition = 'all 0.2s ease';
+    card.style.transform = 'scale(1.02)';
+    card.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
     
-    if (!mesaActual) return;
+    setTimeout(() => {
+        card.style.transform = 'scale(1)';
+    }, 200);
     
-    // Agregar al Set los pedidos completados de esta mesa
-    historial.forEach(item => {
-        if (item.mesaId == mesaActual) {
-            pedidosCompletados.add(item.pedidoId);
+    // Mensaje flotante
+    const mensaje = document.createElement('div');
+    mensaje.className = 'feedback-flotante';
+    mensaje.textContent = nuevoEstado === 'listo' ? '✓ Listo' : 
+                         nuevoEstado === 'proceso' ? '⚙ Proceso' : '⏱ Pendiente';
+    mensaje.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: ${nuevoEstado === 'listo' ? '#27ae60' : nuevoEstado === 'proceso' ? '#f39c12' : '#e74c3c'};
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        z-index: 10;
+        animation: fadeInOut 2s ease forwards;
+    `;
+    
+    card.style.position = 'relative';
+    card.appendChild(mensaje);
+    
+    setTimeout(() => {
+        if (mensaje.parentNode) {
+            mensaje.remove();
         }
-    });
-    
-    console.log('📋 Pedidos completados cargados:', Array.from(pedidosCompletados));
+    }, 2000);
 }
 
-// 🔥 MODIFICADO: Ignorar pedidos que ya fueron completados
+// 🔥 Aplicar cambios visuales inmediatos
+function aplicarEstadoUI(card, estado) {
+    if (!card || !document.body.contains(card)) return;
+    
+    const header = card.querySelector(".card-header");
+    const botonPendiente = card.querySelector('.btn-pendiente');
+    const botonProceso = card.querySelector('.btn-proceso');
+    const botonListo = card.querySelector('.btn-listo');
+    
+    // Remover clases actuales
+    card.classList.remove('pendiente', 'proceso', 'listo');
+    if (header) {
+        header.classList.remove('pend', 'proce', 'list');
+    }
+    
+    // Remover activo de todos los botones
+    [botonPendiente, botonProceso, botonListo].forEach(btn => {
+        if (btn) btn.classList.remove('activo');
+    });
+    
+    // Aplicar nuevo estado
+    card.classList.add(estado);
+    
+    if (estado === 'pendiente') {
+        if (header) header.classList.add('pend');
+        if (botonPendiente) botonPendiente.classList.add('activo');
+    } else if (estado === 'proceso') {
+        if (header) header.classList.add('proce');
+        if (botonProceso) botonProceso.classList.add('activo');
+    } else if (estado === 'listo') {
+        if (header) header.classList.add('list');
+        if (botonListo) botonListo.classList.add('activo');
+    }
+}
+
+// 🔥 MODIFICADO: Ahora aplica estados pero respeta cambios recientes
 function cargarEstadosIniciales() {
     const mesaId = obtenerMesaIdNumerico();
     if (!mesaId) return;
@@ -116,18 +145,6 @@ function cargarEstadosIniciales() {
                 console.log('📦 Estados desde servidor:', data.pedidos.length);
                 
                 data.pedidos.forEach(pedidoInfo => {
-                    // 🔥 IMPORTANTE: Si el pedido ya fue completado, ignorarlo
-                    if (pedidosCompletados.has(pedidoInfo.id)) {
-                        console.log(`⏭️ Ignorando pedido completado ${pedidoInfo.id} del servidor`);
-                        
-                        // Asegurar que no esté en el DOM
-                        const cardExistente = document.querySelector(`.pedido-card[data-pedido-id="${pedidoInfo.id}"]`);
-                        if (cardExistente) {
-                            cardExistente.remove();
-                        }
-                        return;
-                    }
-                    
                     const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${pedidoInfo.id}"]`);
                     if (pedidoCard) {
                         // 🔥 IMPORTANTE: Verificar si hubo interacción reciente
@@ -151,18 +168,6 @@ function cargarEstadosIniciales() {
                         }
                     }
                 });
-                
-                // 🔥 Verificar si hay tarjetas en el DOM que no deberían estar
-                document.querySelectorAll('.pedido-card').forEach(card => {
-                    const pedidoId = card.dataset.pedidoId;
-                    if (pedidosCompletados.has(pedidoId)) {
-                        console.log(`🗑️ Eliminando tarjeta huérfana de pedido completado ${pedidoId}`);
-                        card.remove();
-                    }
-                });
-                
-                // Verificar si ya no hay pedidos
-                verificarPedidosRestantes();
             }
         })
         .catch(error => console.error('Error cargando estados:', error));
@@ -203,12 +208,14 @@ function actualizarEstadoPedido(pedidoId, nuevoEstado, card) {
             
         } else {
             console.error('❌ Error en servidor');
+            mostrarNotificacion('❌ Error al actualizar', 'error');
             // Revertir UI (opcional)
             setTimeout(() => cargarEstadosIniciales(), 1000);
         }
     })
     .catch(error => {
         console.error('Error:', error);
+        mostrarNotificacion('❌ Error de conexión', 'error');
     })
     .finally(() => {
         peticionesPendientes.delete(pedidoId);
@@ -250,17 +257,67 @@ function obtenerMesaIdNumerico() {
     return null;
 }
 
-// 🔥 MODIFICADO: Escuchar cambios de localStorage
+function mostrarNotificacion(mensaje, tipo) {
+    const notificacionesPrevias = document.querySelectorAll('.notificacion-temp');
+    notificacionesPrevias.forEach(n => n.remove());
+    
+    const notificacion = document.createElement('div');
+    notificacion.className = `notificacion-temp ${tipo}`;
+    notificacion.innerHTML = mensaje;
+    
+    let colorFondo;
+    switch(tipo) {
+        case 'success':
+            colorFondo = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            break;
+        case 'error':
+            colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            break;
+        case 'info':
+            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
+            break;
+        default:
+            colorFondo = 'linear-gradient(135deg, #3498db, #2980b9)';
+    }
+    
+    notificacion.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 10px;
+        color: white;
+        font-weight: 500;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+        background: ${colorFondo};
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+    
+    document.body.appendChild(notificacion);
+    
+    setTimeout(() => {
+        notificacion.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => notificacion.remove(), 300);
+    }, 3000);
+}
+
+// 🔥 NUEVO: Escuchar cambios de localStorage (para otras pestañas)
 window.addEventListener('storage', function(e) {
     if (e.key === 'ultimo_cambio' && e.newValue) {
         try {
             const data = JSON.parse(e.newValue);
             console.log('📡 Cambio detectado en otra pestaña:', data);
             
+            // Solo procesar si es de la misma mesa que estamos viendo
             const mesaActual = obtenerMesaIdNumerico();
             if (mesaActual && data.mesaId == mesaActual) {
                 const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
                 if (pedidoCard) {
+                    // Verificar que no haya interacción reciente
                     const ultimaInteraccion = pedidoCard.dataset.ultimaInteraccion;
                     const ahora = Date.now();
                     
@@ -281,181 +338,7 @@ window.addEventListener('storage', function(e) {
             console.error('Error procesando cambio de localStorage:', error);
         }
     }
-    
-    if (e.key === 'pedido_completado' && e.newValue) {
-        try {
-            const data = JSON.parse(e.newValue);
-            console.log('📡 Pedido completado detectado en otro dispositivo:', data);
-            
-            const mesaActual = obtenerMesaIdNumerico();
-            if (mesaActual && data.mesaId == mesaActual) {
-                // 🔥 Agregar al Set de completados
-                pedidosCompletados.add(data.pedidoId);
-                
-                const card = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
-                if (card) {
-                    console.log(`🗑️ Eliminando pedido ${data.pedidoId} por solicitud de otro dispositivo`);
-                    
-                    card.style.transition = 'all 0.3s ease';
-                    card.style.opacity = '0';
-                    card.style.transform = 'scale(0.8)';
-                    
-                    setTimeout(() => {
-                        if (card.parentNode) {
-                            card.remove();
-                            verificarPedidosRestantes();
-                        }
-                    }, 300);
-                }
-            }
-        } catch (error) {
-            console.error('Error procesando pedido completado:', error);
-        }
-    }
 });
-
-// 🔥 MODIFICADO: Verificar pedidos completados al cargar
-function verificarPedidosCompletadosCarga() {
-    const HISTORIAL_KEY = 'pedidos_completados';
-    const historial = JSON.parse(localStorage.getItem(HISTORIAL_KEY)) || [];
-    const mesaActual = obtenerMesaIdNumerico();
-    
-    if (!mesaActual || historial.length === 0) return;
-    
-    console.log('🔍 Verificando completados al cargar:', historial);
-    
-    historial.forEach(item => {
-        if (item.mesaId == mesaActual) {
-            // 🔥 Agregar al Set
-            pedidosCompletados.add(item.pedidoId);
-            
-            const card = document.querySelector(`.pedido-card[data-pedido-id="${item.pedidoId}"]`);
-            if (card) {
-                console.log(`🗑️ Eliminando pedido completado ${item.pedidoId} al cargar`);
-                card.remove();
-            }
-        }
-    });
-    
-    verificarPedidosRestantes();
-}
-
-function verificarPedidosRestantes() {
-    const pedidosRestantes = document.querySelectorAll('.pedido-card');
-    console.log(`📋 Pedidos restantes: ${pedidosRestantes.length}`);
-    
-    if (pedidosRestantes.length === 0) {
-        const container = document.querySelector('.cards-pedidos-container');
-        if (container) {
-            container.style.display = 'none';
-            mostrarMensajeSinPedidos();
-        }
-    } else {
-        const container = document.querySelector('.cards-pedidos-container');
-        if (container) {
-            container.style.display = 'grid';
-        }
-        
-        const mensajeContainer = document.querySelector('.fullwidth-message-container');
-        if (mensajeContainer) {
-            mensajeContainer.remove();
-        }
-    }
-}
-
-function mostrarMensajeSinPedidos() {
-    let fullWidthContainer = document.querySelector('.fullwidth-message-container');
-    if (!fullWidthContainer) {
-        fullWidthContainer = document.createElement('div');
-        fullWidthContainer.className = 'fullwidth-message-container';
-        
-        const containerElement = document.querySelector('.container');
-        const header = document.querySelector('header');
-        
-        if (header && header.nextSibling) {
-            containerElement.insertBefore(fullWidthContainer, header.nextSibling);
-        } else {
-            containerElement.appendChild(fullWidthContainer);
-        }
-    }
-    
-    fullWidthContainer.innerHTML = `
-        <div class="sin-pedidos-fullwidth">
-            <i class="fas fa-check-circle"></i>
-            <h3>¡No hay pedidos pendientes!</h3>
-            <p>Esta mesa no tiene pedidos en espera. Todos han sido procesados.</p>
-        </div>
-    `;
-}
-
-// 🔥 Feedback visual inmediato
-function mostrarFeedbackVisual(card, nuevoEstado) {
-    card.style.transition = 'all 0.2s ease';
-    card.style.transform = 'scale(1.02)';
-    card.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)';
-    
-    setTimeout(() => {
-        card.style.transform = 'scale(1)';
-    }, 200);
-    
-    const mensaje = document.createElement('div');
-    mensaje.className = 'feedback-flotante';
-    mensaje.textContent = nuevoEstado === 'listo' ? '✓ Listo' : 
-                         nuevoEstado === 'proceso' ? '⚙ Proceso' : '⏱ Pendiente';
-    mensaje.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: ${nuevoEstado === 'listo' ? '#27ae60' : nuevoEstado === 'proceso' ? '#f39c12' : '#e74c3c'};
-        color: white;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        font-weight: bold;
-        z-index: 10;
-        animation: fadeInOut 2s ease forwards;
-    `;
-    
-    card.style.position = 'relative';
-    card.appendChild(mensaje);
-    
-    setTimeout(() => {
-        if (mensaje.parentNode) {
-            mensaje.remove();
-        }
-    }, 2000);
-}
-
-function aplicarEstadoUI(card, estado) {
-    if (!card || !document.body.contains(card)) return;
-    
-    const header = card.querySelector(".card-header");
-    const botonPendiente = card.querySelector('.btn-pendiente');
-    const botonProceso = card.querySelector('.btn-proceso');
-    const botonListo = card.querySelector('.btn-listo');
-    
-    card.classList.remove('pendiente', 'proceso', 'listo');
-    if (header) {
-        header.classList.remove('pend', 'proce', 'list');
-    }
-    
-    [botonPendiente, botonProceso, botonListo].forEach(btn => {
-        if (btn) btn.classList.remove('activo');
-    });
-    
-    card.classList.add(estado);
-    
-    if (estado === 'pendiente') {
-        if (header) header.classList.add('pend');
-        if (botonPendiente) botonPendiente.classList.add('activo');
-    } else if (estado === 'proceso') {
-        if (header) header.classList.add('proce');
-        if (botonProceso) botonProceso.classList.add('activo');
-    } else if (estado === 'listo') {
-        if (header) header.classList.add('list');
-        if (botonListo) botonListo.classList.add('activo');
-    }
-}
 
 // Agregar estilos
 const style = document.createElement('style');
@@ -481,3 +364,61 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+window.addEventListener('storage', function(e) {
+    if (e.key === 'pedido_completado' && e.newValue) {
+        try {
+            const data = JSON.parse(e.newValue);
+            console.log('📡 Pedido completado detectado en Pendientes.js:', data);
+            
+            // Buscar y eliminar la tarjeta del pedido completado
+            const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+            if (pedidoCard) {
+                // Usar la misma función de eliminación con animación
+                pedidoCard.style.transition = 'all 0.3s ease';
+                pedidoCard.style.opacity = '0';
+                pedidoCard.style.transform = 'scale(0.8)';
+                
+                setTimeout(() => {
+                    if (pedidoCard.parentNode) {
+                        pedidoCard.remove();
+                        
+                        // Verificar si ya no quedan pedidos
+                        if (document.querySelectorAll('.pedido-card').length === 0) {
+                            // Mostrar mensaje de sin pedidos
+                            const container = document.querySelector('.container');
+                            if (container) {
+                                const mensajeHTML = `
+                                    <div class="fullwidth-message-container">
+                                        <div class="sin-pedidos-fullwidth">
+                                            <i class="fas fa-check-circle"></i>
+                                            <h3>¡No hay pedidos pendientes!</h3>
+                                            <p>Esta mesa no tiene pedidos en espera.</p>
+                                            <a href="/Rol/Cocinero" class="back-btn" style="margin-top: 20px;">
+                                                <i class="fas fa-arrow-left"></i> Volver
+                                            </a>
+                                        </div>
+                                    </div>
+                                `;
+                                
+                                // Insertar después del header
+                                const header = document.querySelector('header');
+                                if (header && header.nextSibling) {
+                                    header.insertAdjacentHTML('afterend', mensajeHTML);
+                                } else {
+                                    container.insertAdjacentHTML('beforeend', mensajeHTML);
+                                }
+                                
+                                // Ocultar el contenedor de pedidos
+                                const cardsContainer = document.querySelector('.cards-pedidos-container');
+                                if (cardsContainer) cardsContainer.style.display = 'none';
+                            }
+                        }
+                    }
+                }, 300);
+            }
+        } catch (error) {
+            console.error('Error procesando evento de completado:', error);
+        }
+    }
+});

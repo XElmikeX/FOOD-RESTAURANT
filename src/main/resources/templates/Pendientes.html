@@ -34,8 +34,9 @@
         <div th:if="${pedidosMesa != null and not pedidosMesa.empty}" class="cards-pedidos-container">
             
             <div th:each="p, iterStat : ${pedidosMesa}" 
-                th:data-pedido-id="${p.id}"
-                class="pedido-card pendiente">
+                 th:data-pedido-id="${p.id}"
+                 th:data-mesa-id="${p.mesa.id}"
+                 class="pedido-card pendiente">
                 
                 <!-- ENCABEZADO CON EFECTO SHINE -->
                 <div class="card-header pend">
@@ -83,9 +84,11 @@
                         </button>
                     </div>
                     
-                    <!-- En la sección del botón de confirmación, asegúrate de que tenga type="button" -->
+                    <!-- BOTÓN DE CONFIRMACIÓN CORREGIDO -->
                     <div class="confirmacion-container">
-                        <button type="button" class="btn-confirmacion" data-pedido-id="${p.id}">
+                        <button type="button" 
+                                class="btn-confirmacion" 
+                                th:attr="data-pedido-id=${p.id}">
                             <i class="fas fa-paper-plane"></i>
                             <span>Pedido Realizado</span>
                         </button>

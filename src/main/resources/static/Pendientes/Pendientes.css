@@ -781,18 +781,3 @@ header h1 i {
     50% { transform: translateX(100%); }
     100% { transform: translateX(100%); }
 }
-
-/* Estilos para el contenedor de confirmación */
-.confirmacion-container {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
-    justify-content: center;
-    animation: fadeIn 0.3s ease;
-    display: none;  /* Por defecto oculto */
-}
-
-/* Mostrar el contenedor cuando hay un cambio de estado */
-.aparicion {
-    display: flex !important;  /* Forzar visualización */
-}
