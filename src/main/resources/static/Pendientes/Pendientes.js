@@ -30,7 +30,7 @@
         
         setTimeout(() => {
             location.reload();
-        }, 1000);
+        }, 500);
     }
 })();
 
@@ -474,7 +474,7 @@ window.addEventListener('storage', function(e) {
                 // RECARGAR INMEDIATAMENTE (sin esperar)
                 setTimeout(() => {
                     location.reload();
-                }, 4000);
+                }, 1000);
             }
             
         } catch (error) {
