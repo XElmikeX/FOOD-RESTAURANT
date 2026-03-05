@@ -1,5 +1,39 @@
 // Variables para control de concurrencia
 
+(function() {
+    // Verificar si hay una recarga pendiente en sessionStorage
+    const pendiente = sessionStorage.getItem('pedido_completado_urgente');
+    if (pendiente) {
+        console.log('🔄 Recarga pendiente detectada, ejecutando...');
+        sessionStorage.removeItem('pedido_completado_urgente');
+        
+        // Mostrar mensaje y recargar
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(231, 76, 60, 0.9);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            flex-direction: column;
+        `;
+        overlay.innerHTML = '🔄 Sincronizando con otro dispositivo...<br><small>Recargando página</small>';
+        document.body.appendChild(overlay);
+        
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+})();
+
 let peticionesPendientes = new Map();
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -395,70 +429,58 @@ window.addEventListener('storage', function(e) {
                     top: 20px;
                     left: 50%;
                     transform: translateX(-50%);
-                    background: #3498db;
+                    background: #e74c3c;
                     color: white;
-                    padding: 15px 30px;
-                    border-radius: 10px;
+                    padding: 20px 40px;
+                    border-radius: 50px;
                     font-weight: bold;
+                    font-size: 18px;
                     z-index: 10000;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
                     animation: slideDown 0.3s ease;
+                    border: 2px solid white;
                 `;
-                notificacion.innerHTML = '🔄 Pedido completado en otro dispositivo<br>Actualizando página...';
+                notificacion.innerHTML = '🔄 PEDIDO COMPLETADO EN OTRO DISPOSITIVO<br><small>Actualizando página...</small>';
                 document.body.appendChild(notificacion);
                 
                 // 🔥 DESHABILITAR TODA INTERACCIÓN INMEDIATAMENTE
-                document.querySelectorAll('button').forEach(btn => {
+                document.querySelectorAll('button, a, .btn-estado, .btn-confirmacion').forEach(btn => {
                     btn.disabled = true;
-                    btn.style.opacity = '0.5';
+                    btn.style.opacity = '0.3';
+                    btn.style.pointerEvents = 'none';
                     btn.style.cursor = 'not-allowed';
                 });
                 
-                // También deshabilitar clicks en toda la página
-                document.body.style.pointerEvents = 'none';
+                // Deshabilitar clicks en toda la página con un overlay
+                const overlay = document.createElement('div');
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 9999;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    color: white;
+                    font-size: 24px;
+                    font-weight: bold;
+                `;
+                overlay.innerHTML = '🔄 Actualizando...';
+                document.body.appendChild(overlay);
                 
-                // Recargar después de 1 segundo (para que se vea el mensaje)
+                // RECARGAR INMEDIATAMENTE (sin esperar)
                 setTimeout(() => {
                     location.reload();
-                }, 1000);
+                }, 500); // Reducido a 0.5 segundos
             }
             
         } catch (error) {
             console.error('Error procesando evento de completado:', error);
-        }
-    }
-});
-
-// Función para forzar recarga cuando se completa un pedido
-function forzarRecargaSiEsNecesario() {
-    // Verificar si hay una notificación pendiente en sessionStorage
-    const pendiente = sessionStorage.getItem('recarga_pendiente');
-    if (pendiente) {
-        sessionStorage.removeItem('recarga_pendiente');
-        location.reload();
-    }
-}
-
-// Llamarla al cargar la página
-forzarRecargaSiNecesario();
-
-// También escuchar 'ultimo_cambio' por si acaso
-window.addEventListener('storage', function(e) {
-    if (recargando) return;
-    
-    if (e.key === 'ultimo_cambio' && e.newValue) {
-        try {
-            const data = JSON.parse(e.newValue);
-            console.log('📡 Cambio detectado en ultimo_cambio:', data);
-            
-            if (data.estado === 'listo') {
-                const mesaActual = obtenerMesaIdNumerico();
-                if (mesaActual && data.mesaId == mesaActual) {
-                    console.log('🎯 Pedido marcado como listo, podría necesitar recarga');
-                }
-            }
-        } catch (error) {
-            console.error('Error:', error);
+            // Forzar recarga incluso si hay error
+            location.reload();
         }
     }
 });

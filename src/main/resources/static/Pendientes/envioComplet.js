@@ -111,16 +111,21 @@ function notificarPedidoCompletado(pedidoId, mesaId) {
         mesaId: mesaId,
         timestamp: Date.now(),
         action: 'completado',
-        url: window.location.href
+        url: window.location.href,
+        forced: true // Para asegurar que es forzoso
     };
     
+    // Usar BOTH localStorage y sessionStorage para mayor seguridad
     localStorage.setItem('pedido_completado', JSON.stringify(evento));
+    sessionStorage.setItem('pedido_completado_urgente', JSON.stringify(evento));
+    
     console.log('📢 Notificación enviada a otros dispositivos:', evento);
     
-    // Limpiar después de 3 segundos
+    // Limpiar después de 5 segundos
     setTimeout(() => {
         localStorage.removeItem('pedido_completado');
-    }, 3000);
+        sessionStorage.removeItem('pedido_completado_urgente');
+    }, 5000);
 }
 
 // Eliminar tarjeta con animación y DESHABILITAR INTERACCIÓN
