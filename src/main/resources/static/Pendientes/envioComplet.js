@@ -106,6 +106,11 @@ function manejarClickCompletar(event) {
 }
 
 function notificarPedidoCompletado(pedidoId, mesaId) {
+    console.log('📢 PREPARANDO NOTIFICACIÓN PARA OTROS DISPOSITIVOS');
+    console.log('   Pedido ID:', pedidoId);
+    console.log('   Mesa ID:', mesaId);
+    console.log('   URL actual:', window.location.href);
+    
     const evento = {
         pedidoId: pedidoId,
         mesaId: mesaId,
@@ -119,16 +124,24 @@ function notificarPedidoCompletado(pedidoId, mesaId) {
     localStorage.removeItem('pedido_completado');
     sessionStorage.removeItem('pedido_completado_urgente');
     
-    // Usar BOTH localStorage y sessionStorage para mayor seguridad
+    // Enviar nueva notificación
     localStorage.setItem('pedido_completado', JSON.stringify(evento));
     sessionStorage.setItem('pedido_completado_urgente', JSON.stringify(evento));
     
-    console.log('📢 Notificación enviada a otros dispositivos:', evento);
+    console.log('✅ NOTIFICACIÓN ENVIADA:', evento);
+    console.log('   localStorage.getItem():', localStorage.getItem('pedido_completado'));
+    
+    // Verificar que se guardó correctamente
+    setTimeout(() => {
+        const verificar = localStorage.getItem('pedido_completado');
+        console.log('🔍 Verificación - localStorage contiene:', verificar);
+    }, 100);
     
     // Limpiar después de 5 segundos
     setTimeout(() => {
         localStorage.removeItem('pedido_completado');
         sessionStorage.removeItem('pedido_completado_urgente');
+        console.log('🧹 Notificación limpiada');
     }, 5000);
 }
 

@@ -405,45 +405,41 @@ let recargando = false;
 
 // Escuchar cambios de localStorage (para otras pestañas)
 window.addEventListener('storage', function(e) {
+    console.log('📢 EVENTO STORAGE DETECTADO:', e.key, e.newValue);
+    
     // No procesar si ya estamos recargando
     if (recargando) return;
     
     if (e.key === 'pedido_completado' && e.newValue) {
         try {
             const data = JSON.parse(e.newValue);
-            console.log('📡 Pedido completado detectado en Pendientes.js:', data);
+            console.log('🔥🔥🔥 PEDIDO COMPLETADO DETECTADO EN OTRO DISPOSITIVO:', data);
+            console.log('📊 Datos completos:', data);
             
             // Verificar que el pedido completado es de la misma mesa que estamos viendo
             const mesaActual = obtenerMesaIdNumerico();
+            console.log('📍 Mesa actual:', mesaActual);
+            console.log('📍 Mesa del pedido completado:', data.mesaId);
             
             if (mesaActual && data.mesaId == mesaActual) {
-                console.log('🎯 Es de esta mesa, preparando recarga...');
+                console.log('🎯 ES LA MISMA MESA - FORZANDO RECARGA INMEDIATA');
                 
                 // Marcar que ya vamos a recargar
                 recargando = true;
                 
-                // Mostrar mensaje al usuario
-                const notificacion = document.createElement('div');
-                notificacion.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: #e74c3c;
-                    color: white;
-                    padding: 20px 40px;
-                    border-radius: 50px;
-                    font-weight: bold;
-                    font-size: 18px;
-                    z-index: 10000;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                    animation: slideDown 0.3s ease;
-                    border: 2px solid white;
-                `;
-                notificacion.innerHTML = '🔄 PEDIDO COMPLETADO EN OTRO DISPOSITIVO<br><small>Actualizando página...</small>';
-                document.body.appendChild(notificacion);
+                // 1. PONER LA TARJETA EN BLANCO
+                const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                if (pedidoCard) {
+                    console.log('🎨 Poniendo tarjeta en blanco:', data.pedidoId);
+                    pedidoCard.style.transition = 'all 0.3s ease';
+                    pedidoCard.style.opacity = '0';
+                    pedidoCard.style.backgroundColor = '#ffffff';
+                    pedidoCard.style.pointerEvents = 'none';
+                } else {
+                    console.log('⚠️ No se encontró la tarjeta con ID:', data.pedidoId);
+                }
                 
-                // 🔥 DESHABILITAR TODA INTERACCIÓN INMEDIATAMENTE
+                // 2. DESHABILITAR TODA INTERACCIÓN
                 document.querySelectorAll('button, a, .btn-estado, .btn-confirmacion').forEach(btn => {
                     btn.disabled = true;
                     btn.style.opacity = '0.3';
@@ -451,55 +447,71 @@ window.addEventListener('storage', function(e) {
                     btn.style.cursor = 'not-allowed';
                 });
                 
-                // Deshabilitar clicks en toda la página con un overlay
+                // 3. MOSTRAR MENSAJE DE RECARGA
                 const overlay = document.createElement('div');
+                overlay.id = 'recarga-overlay';
                 overlay.style.cssText = `
                     position: fixed;
                     top: 0;
                     left: 0;
                     width: 100%;
                     height: 100%;
-                    background: rgba(0,0,0,0.5);
-                    z-index: 9999;
+                    background: rgba(0,0,0,0.8);
+                    z-index: 999999;
                     display: flex;
+                    flex-direction: column;
                     justify-content: center;
                     align-items: center;
                     color: white;
-                    font-size: 24px;
+                    font-size: 32px;
                     font-weight: bold;
                 `;
-                overlay.innerHTML = '🔄 Actualizando en 1 segundo...';
+                overlay.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="font-size: 60px; margin-bottom: 20px;">🔄</div>
+                        <div>PEDIDO COMPLETADO EN OTRO DISPOSITIVO</div>
+                        <div style="font-size: 20px; margin-top: 20px;">Recargando página en 1 segundo...</div>
+                    </div>
+                `;
                 document.body.appendChild(overlay);
                 
-                // 🔥 HACER QUE LA TARJETA SE PONGA BLANCA INMEDIATAMENTE
-                const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
-                if (pedidoCard) {
-                    pedidoCard.style.transition = 'all 0.3s ease';
-                    pedidoCard.style.opacity = '0';
-                    pedidoCard.style.backgroundColor = '#ffffff';
-                    console.log('🎨 Tarjeta puesta en blanco');
-                }
-                
-                // ⏰ RECARGAR DESPUÉS DE 1 SEGUNDO (GARANTIZADO)
-                console.log('⏰ INICIANDO TEMPORIZADOR DE 1 SEGUNDO PARA RECARGAR');
+                // 4. FORZAR RECARGA DESPUÉS DE 1 SEGUNDO
+                console.log('⏰ INICIANDO TEMPORIZADOR DE 1 SEGUNDO');
                 setTimeout(() => {
-                    console.log('🔥 EJECUTANDO LOCATION.RELOAD() AHORA MISMO');
+                    console.log('🔥🔥🔥 EJECUTANDO RECARGA AHORA MISMO');
                     
-                    // FORZAR REFRESH DE MÚLTIPLES FORMAS
-                    window.location.href = window.location.href; // Método 1
+                    // Múltiples métodos de recarga
+                    try {
+                        // Método 1: El más directo
+                        window.location.reload(true);
+                    } catch(e) {
+                        console.error('Error método 1:', e);
+                    }
                     
-                    // Respaldo por si el método 1 no funciona
+                    // Método 2: Respaldo
                     setTimeout(() => {
-                        window.location.reload();
+                        window.location.href = window.location.href;
                     }, 100);
                     
-                }, 1000); // 1000ms = 1 segundo exacto
+                }, 1000);
+            } else {
+                console.log('❌ No es la misma mesa, ignorando');
             }
             
         } catch (error) {
-            console.error('Error procesando evento de completado:', error);
-            // Forzar recarga incluso si hay error
-            window.location.href = window.location.href;
+            console.error('❌ Error procesando evento:', error);
+            console.error('Error details:', error.message);
         }
     }
+});
+
+// También agregar un event listener para debuggear TODOS los cambios en localStorage
+window.addEventListener('storage', function(e) {
+    console.log('📦 Todos los cambios en localStorage:', {
+        key: e.key,
+        oldValue: e.oldValue,
+        newValue: e.newValue,
+        url: e.url,
+        storageArea: e.storageArea
+    });
 });
