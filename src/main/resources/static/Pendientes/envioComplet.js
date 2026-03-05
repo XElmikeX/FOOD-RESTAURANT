@@ -70,29 +70,32 @@ function manejarClickCompletar(event) {
             'Content-Type': 'application/x-www-form-urlencoded',
         }
     })
-    .then(response => {
-        console.log('Respuesta del servidor - status:', response.status);
-        if (!response.ok) {
-            return response.text().then(text => {
-                throw new Error(`Error ${response.status}: ${text}`);
-            });
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log('✅ Datos recibidos:', data);
-        
         if (data.success) {
             console.log('✅ Pedido completado con éxito');
+            
+            // Guardar en sessionStorage que este pedido fue completado
+            const completados = JSON.parse(sessionStorage.getItem('completados') || '[]');
+            completados.push({
+                pedidoId: pedidoId,
+                mesaId: data.mesaId,
+                timestamp: Date.now()
+            });
+            sessionStorage.setItem('completados', JSON.stringify(completados));
+            
+            // También guardar en localStorage para otras pestañas
+            localStorage.setItem('ultimo_completado', JSON.stringify({
+                pedidoId: pedidoId,
+                mesaId: data.mesaId,
+                timestamp: Date.now()
+            }));
             
             // Notificar a otras pestañas/dispositivos
             notificarPedidoCompletado(pedidoId, data.mesaId);
             
             // Eliminar la tarjeta con animación
             eliminarTarjetaConAnimacion(card, data.mesaId);
-            
-        } else {
-            throw new Error(data.message || 'Error desconocido');
         }
     })
     .catch(error => {

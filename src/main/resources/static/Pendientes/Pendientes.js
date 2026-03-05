@@ -400,118 +400,69 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Variable para controlar si ya se recargó
-let recargando = false;
-
-// Escuchar cambios de localStorage (para otras pestañas)
-window.addEventListener('storage', function(e) {
-    console.log('📢 EVENTO STORAGE DETECTADO:', e.key, e.newValue);
+setInterval(() => {
+    // Obtener todos los pedidos actuales
+    const pedidosActuales = document.querySelectorAll('.pedido-card');
     
-    // No procesar si ya estamos recargando
-    if (recargando) return;
-    
-    if (e.key === 'pedido_completado' && e.newValue) {
-        try {
-            const data = JSON.parse(e.newValue);
-            console.log('🔥🔥🔥 PEDIDO COMPLETADO DETECTADO EN OTRO DISPOSITIVO:', data);
-            console.log('📊 Datos completos:', data);
-            
-            // Verificar que el pedido completado es de la misma mesa que estamos viendo
-            const mesaActual = obtenerMesaIdNumerico();
-            console.log('📍 Mesa actual:', mesaActual);
-            console.log('📍 Mesa del pedido completado:', data.mesaId);
-            
-            if (mesaActual && data.mesaId == mesaActual) {
-                console.log('🎯 ES LA MISMA MESA - FORZANDO RECARGA INMEDIATA');
-                
-                // Marcar que ya vamos a recargar
-                recargando = true;
-                
-                // 1. PONER LA TARJETA EN BLANCO
-                const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
-                if (pedidoCard) {
-                    console.log('🎨 Poniendo tarjeta en blanco:', data.pedidoId);
-                    pedidoCard.style.transition = 'all 0.3s ease';
-                    pedidoCard.style.opacity = '0';
-                    pedidoCard.style.backgroundColor = '#ffffff';
-                    pedidoCard.style.pointerEvents = 'none';
-                } else {
-                    console.log('⚠️ No se encontró la tarjeta con ID:', data.pedidoId);
-                }
-                
-                // 2. DESHABILITAR TODA INTERACCIÓN
-                document.querySelectorAll('button, a, .btn-estado, .btn-confirmacion').forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.3';
-                    btn.style.pointerEvents = 'none';
-                    btn.style.cursor = 'not-allowed';
-                });
-                
-                // 3. MOSTRAR MENSAJE DE RECARGA
-                const overlay = document.createElement('div');
-                overlay.id = 'recarga-overlay';
-                overlay.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0,0,0,0.8);
-                    z-index: 999999;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                    align-items: center;
-                    color: white;
-                    font-size: 32px;
-                    font-weight: bold;
-                `;
-                overlay.innerHTML = `
-                    <div style="text-align: center;">
-                        <div style="font-size: 60px; margin-bottom: 20px;">🔄</div>
-                        <div>PEDIDO COMPLETADO EN OTRO DISPOSITIVO</div>
-                        <div style="font-size: 20px; margin-top: 20px;">Recargando página en 1 segundo...</div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                
-                // 4. FORZAR RECARGA DESPUÉS DE 1 SEGUNDO
-                console.log('⏰ INICIANDO TEMPORIZADOR DE 1 SEGUNDO');
-                setTimeout(() => {
-                    console.log('🔥🔥🔥 EJECUTANDO RECARGA AHORA MISMO');
+    // Verificar en el servidor si alguno fue completado
+    const mesaId = obtenerMesaIdNumerico();
+    if (mesaId) {
+        fetch(`/api/pedidos/estados-mesa/${mesaId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Comparar con lo que tenemos en pantalla
+                    const pedidosEnServidor = data.pedidos.map(p => p.id);
+                    const pedidosEnPantalla = Array.from(pedidosActuales).map(card => 
+                        parseInt(card.dataset.pedidoId)
+                    );
                     
-                    // Múltiples métodos de recarga
-                    try {
-                        // Método 1: El más directo
-                        window.location.reload(true);
-                    } catch(e) {
-                        console.error('Error método 1:', e);
+                    // Encontrar pedidos que están en pantalla pero NO en el servidor
+                    const pedidosEliminados = pedidosEnPantalla.filter(id => 
+                        !pedidosEnServidor.includes(id)
+                    );
+                    
+                    if (pedidosEliminados.length > 0) {
+                        console.log('🔥 Pedidos eliminados detectados:', pedidosEliminados);
+                        
+                        // Forzar recarga de la página
+                        mostrarMensajeRecarga();
+                        
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1000);
                     }
-                    
-                    // Método 2: Respaldo
-                    setTimeout(() => {
-                        window.location.href = window.location.href;
-                    }, 100);
-                    
-                }, 1000);
-            } else {
-                console.log('❌ No es la misma mesa, ignorando');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error procesando evento:', error);
-            console.error('Error details:', error.message);
-        }
+                }
+            })
+            .catch(error => console.error('Error verificando pedidos:', error));
     }
-});
+}, 2000); // Verificar cada 2 segundos
 
-// También agregar un event listener para debuggear TODOS los cambios en localStorage
-window.addEventListener('storage', function(e) {
-    console.log('📦 Todos los cambios en localStorage:', {
-        key: e.key,
-        oldValue: e.oldValue,
-        newValue: e.newValue,
-        url: e.url,
-        storageArea: e.storageArea
-    });
-});
+function mostrarMensajeRecarga() {
+    // Mostrar mensaje de recarga
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+    `;
+    overlay.innerHTML = `
+        <div style="text-align: center;">
+            <div style="font-size: 80px; margin-bottom: 30px;">🔄</div>
+            <div>PEDIDO COMPLETADO EN OTRO DISPOSITIVO</div>
+            <div style="font-size: 24px; margin-top: 30px;">Recargando página...</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
