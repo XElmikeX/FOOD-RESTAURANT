@@ -1,18 +1,5 @@
 // Variables para control de concurrencia
 
-// Función para forzar recarga cuando se completa un pedido
-function forzarRecargaSiEsNecesario() {
-    // Verificar si hay una notificación pendiente en sessionStorage
-    const pendiente = sessionStorage.getItem('recarga_pendiente');
-    if (pendiente) {
-        sessionStorage.removeItem('recarga_pendiente');
-        location.reload();
-    }
-}
-
-// Llamarla al cargar la página
-forzarRecargaSiNecesario();
-
 let peticionesPendientes = new Map();
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -431,6 +418,19 @@ window.addEventListener('storage', function(e) {
         }
     }
 });
+
+// Función para forzar recarga cuando se completa un pedido
+function forzarRecargaSiEsNecesario() {
+    // Verificar si hay una notificación pendiente en sessionStorage
+    const pendiente = sessionStorage.getItem('recarga_pendiente');
+    if (pendiente) {
+        sessionStorage.removeItem('recarga_pendiente');
+        location.reload();
+    }
+}
+
+// Llamarla al cargar la página
+forzarRecargaSiNecesario();
 
 // También escuchar 'ultimo_cambio' por si acaso
 window.addEventListener('storage', function(e) {
