@@ -474,7 +474,7 @@ window.addEventListener('storage', function(e) {
                 // RECARGAR INMEDIATAMENTE (sin esperar)
                 setTimeout(() => {
                     location.reload();
-                }, 500); // Reducido a 0.5 segundos
+                }, 4000);
             }
             
         } catch (error) {
