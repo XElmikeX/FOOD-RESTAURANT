@@ -383,7 +383,7 @@ window.addEventListener('storage', function(e) {
             const mesaActual = obtenerMesaIdNumerico();
             
             if (mesaActual && data.mesaId == mesaActual) {
-                console.log('🎯 Es de esta mesa, recargando página...');
+                console.log('🎯 Es de esta mesa, RECARGANDO página inmediatamente...');
                 
                 // Marcar que ya vamos a recargar
                 recargando = true;
@@ -407,7 +407,17 @@ window.addEventListener('storage', function(e) {
                 notificacion.innerHTML = '🔄 Pedido completado en otro dispositivo<br>Actualizando página...';
                 document.body.appendChild(notificacion);
                 
-                // Recargar después de 1 segundo
+                // 🔥 DESHABILITAR TODA INTERACCIÓN INMEDIATAMENTE
+                document.querySelectorAll('button').forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                });
+                
+                // También deshabilitar clicks en toda la página
+                document.body.style.pointerEvents = 'none';
+                
+                // Recargar después de 1 segundo (para que se vea el mensaje)
                 setTimeout(() => {
                     location.reload();
                 }, 1000);

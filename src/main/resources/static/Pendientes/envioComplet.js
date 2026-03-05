@@ -105,15 +105,13 @@ function manejarClickCompletar(event) {
     });
 }
 
-// En envioComplet.js, modifica la función notificarPedidoCompletado:
-
 function notificarPedidoCompletado(pedidoId, mesaId) {
     const evento = {
         pedidoId: pedidoId,
         mesaId: mesaId,
         timestamp: Date.now(),
-        action: 'completado', // Importante para identificar la acción
-        url: window.location.href // Para saber en qué página estamos
+        action: 'completado',
+        url: window.location.href
     };
     
     localStorage.setItem('pedido_completado', JSON.stringify(evento));
