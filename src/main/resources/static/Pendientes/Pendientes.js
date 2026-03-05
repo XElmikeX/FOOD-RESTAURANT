@@ -1,4 +1,18 @@
 // Variables para control de concurrencia
+
+// Función para forzar recarga cuando se completa un pedido
+function forzarRecargaSiEsNecesario() {
+    // Verificar si hay una notificación pendiente en sessionStorage
+    const pendiente = sessionStorage.getItem('recarga_pendiente');
+    if (pendiente) {
+        sessionStorage.removeItem('recarga_pendiente');
+        location.reload();
+    }
+}
+
+// Llamarla al cargar la página
+forzarRecargaSiNecesario();
+
 let peticionesPendientes = new Map();
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -365,21 +379,52 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Al inicio del archivo, agrega esta variable
-let ultimoCambio = Date.now();
+// Variable para controlar si ya se recargó
+let recargando = false;
 
-// En la función que maneja el evento storage
+// Escuchar cambios de localStorage (para otras pestañas)
 window.addEventListener('storage', function(e) {
+    // No procesar si ya estamos recargando
+    if (recargando) return;
+    
     if (e.key === 'pedido_completado' && e.newValue) {
         try {
             const data = JSON.parse(e.newValue);
             console.log('📡 Pedido completado detectado en Pendientes.js:', data);
             
-            // Marcar que hubo un cambio reciente
-            ultimoCambio = Date.now();
+            // Verificar que el pedido completado es de la misma mesa que estamos viendo
+            const mesaActual = obtenerMesaIdNumerico();
             
-            // Forzar actualización inmediata
-            cargarEstadosIniciales();
+            if (mesaActual && data.mesaId == mesaActual) {
+                console.log('🎯 Es de esta mesa, recargando página...');
+                
+                // Marcar que ya vamos a recargar
+                recargando = true;
+                
+                // Mostrar mensaje al usuario
+                const notificacion = document.createElement('div');
+                notificacion.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #3498db;
+                    color: white;
+                    padding: 15px 30px;
+                    border-radius: 10px;
+                    font-weight: bold;
+                    z-index: 10000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    animation: slideDown 0.3s ease;
+                `;
+                notificacion.innerHTML = '🔄 Pedido completado en otro dispositivo<br>Actualizando página...';
+                document.body.appendChild(notificacion);
+                
+                // Recargar después de 1 segundo
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
             
         } catch (error) {
             console.error('Error procesando evento de completado:', error);
@@ -387,14 +432,23 @@ window.addEventListener('storage', function(e) {
     }
 });
 
-// Modificar el polling para que sea más frecuente si hubo cambios recientes
-setInterval(() => {
-    // Si hubo un cambio en los últimos 5 segundos, actualizar más rápido
-    if (Date.now() - ultimoCambio < 5000) {
-        console.log('⚡ Cambio reciente, actualizando rápido...');
-        cargarEstadosIniciales();
-    } else {
-        console.log('🔄 Polling normal...');
-        cargarEstadosIniciales();
+// También escuchar 'ultimo_cambio' por si acaso
+window.addEventListener('storage', function(e) {
+    if (recargando) return;
+    
+    if (e.key === 'ultimo_cambio' && e.newValue) {
+        try {
+            const data = JSON.parse(e.newValue);
+            console.log('📡 Cambio detectado en ultimo_cambio:', data);
+            
+            if (data.estado === 'listo') {
+                const mesaActual = obtenerMesaIdNumerico();
+                if (mesaActual && data.mesaId == mesaActual) {
+                    console.log('🎯 Pedido marcado como listo, podría necesitar recarga');
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
     }
-}, 2000);
+});

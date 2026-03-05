@@ -105,20 +105,24 @@ function manejarClickCompletar(event) {
     });
 }
 
-// Notificar a otras pestañas usando localStorage
+// En envioComplet.js, modifica la función notificarPedidoCompletado:
+
 function notificarPedidoCompletado(pedidoId, mesaId) {
     const evento = {
         pedidoId: pedidoId,
         mesaId: mesaId,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        action: 'completado', // Importante para identificar la acción
+        url: window.location.href // Para saber en qué página estamos
     };
     
     localStorage.setItem('pedido_completado', JSON.stringify(evento));
+    console.log('📢 Notificación enviada a otros dispositivos:', evento);
     
-    // Limpiar después de 2 segundos
+    // Limpiar después de 3 segundos
     setTimeout(() => {
         localStorage.removeItem('pedido_completado');
-    }, 2000);
+    }, 3000);
 }
 
 // Eliminar tarjeta con animación y DESHABILITAR INTERACCIÓN
