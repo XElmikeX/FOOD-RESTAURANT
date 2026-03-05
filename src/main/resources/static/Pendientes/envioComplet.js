@@ -112,8 +112,12 @@ function notificarPedidoCompletado(pedidoId, mesaId) {
         timestamp: Date.now(),
         action: 'completado',
         url: window.location.href,
-        forced: true // Para asegurar que es forzoso
+        forced: true
     };
+    
+    // Limpiar cualquier notificación anterior
+    localStorage.removeItem('pedido_completado');
+    sessionStorage.removeItem('pedido_completado_urgente');
     
     // Usar BOTH localStorage y sessionStorage para mayor seguridad
     localStorage.setItem('pedido_completado', JSON.stringify(evento));

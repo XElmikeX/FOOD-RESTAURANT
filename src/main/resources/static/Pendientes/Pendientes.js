@@ -417,7 +417,7 @@ window.addEventListener('storage', function(e) {
             const mesaActual = obtenerMesaIdNumerico();
             
             if (mesaActual && data.mesaId == mesaActual) {
-                console.log('🎯 Es de esta mesa, RECARGANDO página inmediatamente...');
+                console.log('🎯 Es de esta mesa, preparando recarga...');
                 
                 // Marcar que ya vamos a recargar
                 recargando = true;
@@ -468,19 +468,38 @@ window.addEventListener('storage', function(e) {
                     font-size: 24px;
                     font-weight: bold;
                 `;
-                overlay.innerHTML = '🔄 Actualizando...';
+                overlay.innerHTML = '🔄 Actualizando en 1 segundo...';
                 document.body.appendChild(overlay);
                 
-                // RECARGAR INMEDIATAMENTE (sin esperar)
+                // 🔥 HACER QUE LA TARJETA SE PONGA BLANCA INMEDIATAMENTE
+                const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
+                if (pedidoCard) {
+                    pedidoCard.style.transition = 'all 0.3s ease';
+                    pedidoCard.style.opacity = '0';
+                    pedidoCard.style.backgroundColor = '#ffffff';
+                    console.log('🎨 Tarjeta puesta en blanco');
+                }
+                
+                // ⏰ RECARGAR DESPUÉS DE 1 SEGUNDO (GARANTIZADO)
+                console.log('⏰ INICIANDO TEMPORIZADOR DE 1 SEGUNDO PARA RECARGAR');
                 setTimeout(() => {
-                    location.reload();
-                }, 1000);
+                    console.log('🔥 EJECUTANDO LOCATION.RELOAD() AHORA MISMO');
+                    
+                    // FORZAR REFRESH DE MÚLTIPLES FORMAS
+                    window.location.href = window.location.href; // Método 1
+                    
+                    // Respaldo por si el método 1 no funciona
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 100);
+                    
+                }, 1000); // 1000ms = 1 segundo exacto
             }
             
         } catch (error) {
             console.error('Error procesando evento de completado:', error);
             // Forzar recarga incluso si hay error
-            location.reload();
+            window.location.href = window.location.href;
         }
     }
 });
