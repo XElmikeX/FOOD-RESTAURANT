@@ -365,29 +365,36 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Escuchar cambios de localStorage (sincronización entre dispositivos)
+// Al inicio del archivo, agrega esta variable
+let ultimoCambio = Date.now();
+
+// En la función que maneja el evento storage
 window.addEventListener('storage', function(e) {
-    if (e.key === 'pedido_completado') {
+    if (e.key === 'pedido_completado' && e.newValue) {
         try {
             const data = JSON.parse(e.newValue);
-            console.log('📡 Pedido completado detectado en otra pestaña:', data);
+            console.log('📡 Pedido completado detectado en Pendientes.js:', data);
             
-            const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
-            if (pedidoCard) {
-                // DESHABILITAR INMEDIATAMENTE antes de animar
-                const botones = pedidoCard.querySelectorAll('button');
-                botones.forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
-                });
-                pedidoCard.style.pointerEvents = 'none';
-                
-                // Luego animar y eliminar
-                eliminarTarjetaConAnimacion(pedidoCard, data.mesaId);
-            }
+            // Marcar que hubo un cambio reciente
+            ultimoCambio = Date.now();
+            
+            // Forzar actualización inmediata
+            cargarEstadosIniciales();
+            
         } catch (error) {
-            console.error('Error procesando evento:', error);
+            console.error('Error procesando evento de completado:', error);
         }
     }
 });
+
+// Modificar el polling para que sea más frecuente si hubo cambios recientes
+setInterval(() => {
+    // Si hubo un cambio en los últimos 5 segundos, actualizar más rápido
+    if (Date.now() - ultimoCambio < 5000) {
+        console.log('⚡ Cambio reciente, actualizando rápido...');
+        cargarEstadosIniciales();
+    } else {
+        console.log('🔄 Polling normal...');
+        cargarEstadosIniciales();
+    }
+}, 2000);
