@@ -121,8 +121,22 @@ function notificarPedidoCompletado(pedidoId, mesaId) {
     }, 2000);
 }
 
-// Eliminar tarjeta con animación
+// Eliminar tarjeta con animación y DESHABILITAR INTERACCIÓN
 function eliminarTarjetaConAnimacion(card, mesaId) {
+    if (!card) return;
+    
+    // IMPORTANTE: Deshabilitar TODOS los botones dentro de la tarjeta INMEDIATAMENTE
+    const botones = card.querySelectorAll('button');
+    botones.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    });
+    
+    // También deshabilitar clicks en toda la tarjeta
+    card.style.pointerEvents = 'none';
+    
+    // Animar la desaparición
     card.style.transition = 'all 0.3s ease';
     card.style.opacity = '0';
     card.style.transform = 'scale(0.8)';

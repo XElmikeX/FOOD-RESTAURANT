@@ -365,60 +365,29 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// Escuchar cambios de localStorage (sincronización entre dispositivos)
 window.addEventListener('storage', function(e) {
-    if (e.key === 'pedido_completado' && e.newValue) {
+    if (e.key === 'pedido_completado') {
         try {
             const data = JSON.parse(e.newValue);
-            console.log('📡 Pedido completado detectado en Pendientes.js:', data);
+            console.log('📡 Pedido completado detectado en otra pestaña:', data);
             
-            // Buscar y eliminar la tarjeta del pedido completado
             const pedidoCard = document.querySelector(`.pedido-card[data-pedido-id="${data.pedidoId}"]`);
             if (pedidoCard) {
-                // Usar la misma función de eliminación con animación
-                pedidoCard.style.transition = 'all 0.3s ease';
-                pedidoCard.style.opacity = '0';
-                pedidoCard.style.transform = 'scale(0.8)';
+                // DESHABILITAR INMEDIATAMENTE antes de animar
+                const botones = pedidoCard.querySelectorAll('button');
+                botones.forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                });
+                pedidoCard.style.pointerEvents = 'none';
                 
-                setTimeout(() => {
-                    if (pedidoCard.parentNode) {
-                        pedidoCard.remove();
-                        
-                        // Verificar si ya no quedan pedidos
-                        if (document.querySelectorAll('.pedido-card').length === 0) {
-                            // Mostrar mensaje de sin pedidos
-                            const container = document.querySelector('.container');
-                            if (container) {
-                                const mensajeHTML = `
-                                    <div class="fullwidth-message-container">
-                                        <div class="sin-pedidos-fullwidth">
-                                            <i class="fas fa-check-circle"></i>
-                                            <h3>¡No hay pedidos pendientes!</h3>
-                                            <p>Esta mesa no tiene pedidos en espera.</p>
-                                            <a href="/Rol/Cocinero" class="back-btn" style="margin-top: 20px;">
-                                                <i class="fas fa-arrow-left"></i> Volver
-                                            </a>
-                                        </div>
-                                    </div>
-                                `;
-                                
-                                // Insertar después del header
-                                const header = document.querySelector('header');
-                                if (header && header.nextSibling) {
-                                    header.insertAdjacentHTML('afterend', mensajeHTML);
-                                } else {
-                                    container.insertAdjacentHTML('beforeend', mensajeHTML);
-                                }
-                                
-                                // Ocultar el contenedor de pedidos
-                                const cardsContainer = document.querySelector('.cards-pedidos-container');
-                                if (cardsContainer) cardsContainer.style.display = 'none';
-                            }
-                        }
-                    }
-                }, 300);
+                // Luego animar y eliminar
+                eliminarTarjetaConAnimacion(pedidoCard, data.mesaId);
             }
         } catch (error) {
-            console.error('Error procesando evento de completado:', error);
+            console.error('Error procesando evento:', error);
         }
     }
 });
