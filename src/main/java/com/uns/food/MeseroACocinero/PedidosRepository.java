@@ -102,4 +102,11 @@ public interface PedidosRepository extends JpaRepository<Pedidos, Long> {
               "   ELSE 4 END, " +
               "p.hora ASC")    
        List<Pedidos> findByMesaIdVisiblesParaMozo(@Param("mesaId") Long mesaId);
+
+       // En PedidosRepository.java
+       @Query("SELECT p FROM Pedidos p " +
+              "WHERE p.mesa.id = :mesaId " +
+              "AND p.completado = false " +
+              "ORDER BY p.hora ASC")
+       List<Pedidos> findByMesaIdAndCompletadoFalseOrderByHora(@Param("mesaId") Long mesaId);
 }

@@ -545,4 +545,47 @@ public class PortalController {
         }
     }
 
+    @GetMapping("/api/pedidos/pendientes/{mesaId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> obtenerPedidosPendientes(@PathVariable("mesaId") Long mesaId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // Obtener solo pedidos NO completados
+            List<Pedidos> pedidosMesa = pedidosRepository.findByMesaIdAndCompletadoFalseOrderByHora(mesaId);
+            
+            // Contar completados para saber cuántos se eliminaron
+            List<Pedidos> pedidosCompletados = pedidosRepository.findByMesaIdAndCompletadoTrue(mesaId);
+            
+            List<Map<String, Object>> pedidosInfo = pedidosMesa.stream().map(p -> {
+                Map<String, Object> info = new HashMap<>();
+                info.put("id", p.getId());
+                info.put("producto", p.getNombreProducto());
+                info.put("cantidad", p.getCantidad());
+                info.put("nota", p.getNota() != null ? p.getNota() : "");
+                info.put("estado", p.getEstado() != null ? p.getEstado() : "pendiente");
+                info.put("hora", p.getHora() != null ? p.getHora().toString() : null);
+                info.put("nombre", p.getComida() != null ? p.getComida().getNombre() : "");
+                return info;
+            }).collect(Collectors.toList());
+            
+            // Verificar si la mesa sigue teniendo pendientes
+            Optional<Mesas> mesaOpt = mesasRepository.findById(mesaId);
+            boolean mesaPendiente = mesaOpt.isPresent() ? mesaOpt.get().getPendiente() : false;
+            
+            response.put("success", true);
+            response.put("pedidos", pedidosInfo);
+            response.put("totalPendientes", pedidosMesa.size());
+            response.put("totalCompletados", pedidosCompletados.size());
+            response.put("mesaPendiente", mesaPendiente);
+            response.put("mesaId", mesaId);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
 }

@@ -1,39 +1,4 @@
 // Variables para control de concurrencia
-
-(function() {
-    // Verificar si hay una recarga pendiente en sessionStorage
-    const pendiente = sessionStorage.getItem('pedido_completado_urgente');
-    if (pendiente) {
-        console.log('🔄 Recarga pendiente detectada, ejecutando...');
-        sessionStorage.removeItem('pedido_completado_urgente');
-        
-        // Mostrar mensaje y recargar
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(231, 76, 60, 0.9);
-            z-index: 10000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            flex-direction: column;
-        `;
-        overlay.innerHTML = '🔄 Sincronizando con otro dispositivo...<br><small>Recargando página</small>';
-        document.body.appendChild(overlay);
-        
-        setTimeout(() => {
-            location.reload();
-        }, 500);
-    }
-})();
-
 let peticionesPendientes = new Map();
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -189,6 +154,13 @@ function cargarEstadosIniciales() {
                         // Si no hubo interacción en los últimos 2 segundos, aplicar estado
                         if (!ultimaInteraccion || (ahora - parseInt(ultimaInteraccion)) > 2000) {
                             console.log(`📋 Aplicando estado ${pedidoInfo.estado} a pedido ${pedidoInfo.id}`);
+                            
+                            // Verificar si el estado cambió para mostrar notificación
+                            const estadoActual = obtenerEstadoActual(pedidoCard);
+                            if (estadoActual && estadoActual !== pedidoInfo.estado) {
+                                mostrarNotificacionCambioEstado(pedidoInfo.estado);
+                            }
+                            
                             aplicarEstadoUI(pedidoCard, pedidoInfo.estado);
                             
                             // Actualizar botón de confirmación según estado
@@ -206,6 +178,68 @@ function cargarEstadosIniciales() {
             }
         })
         .catch(error => console.error('Error cargando estados:', error));
+}
+
+// 🔥 NUEVA FUNCIÓN: Obtener estado actual de una card
+function obtenerEstadoActual(card) {
+    if (card.classList.contains('pendiente')) return 'pendiente';
+    if (card.classList.contains('proceso')) return 'proceso';
+    if (card.classList.contains('listo')) return 'listo';
+    return null;
+}
+
+// 🔥 NUEVA FUNCIÓN: Mostrar notificación de cambio de estado
+function mostrarNotificacionCambioEstado(nuevoEstado) {
+    let mensaje = '';
+    let colorFondo = '';
+    
+    switch(nuevoEstado) {
+        case 'pendiente':
+            mensaje = '⏱ Pedido marcado como Pendiente';
+            colorFondo = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            break;
+        case 'proceso':
+            mensaje = '⚙ Pedido en Proceso';
+            colorFondo = 'linear-gradient(135deg, #f39c12, #e67e22)';
+            break;
+        case 'listo':
+            mensaje = '✓ Pedido Listo para servir';
+            colorFondo = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            break;
+        default:
+            return;
+    }
+    
+    const notificacion = document.createElement('div');
+    notificacion.className = 'notificacion-temp estado-cambio';
+    notificacion.innerHTML = `
+        <i class="fas ${nuevoEstado === 'listo' ? 'fa-check-circle' : nuevoEstado === 'proceso' ? 'fa-spinner fa-spin' : 'fa-clock'}"></i>
+        ${mensaje}
+    `;
+    
+    notificacion.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 10px;
+        color: white;
+        font-weight: 500;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+        background: ${colorFondo};
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+    
+    document.body.appendChild(notificacion);
+    
+    setTimeout(() => {
+        notificacion.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => notificacion.remove(), 300);
+    }, 3000);
 }
 
 function actualizarEstadoPedido(pedidoId, nuevoEstado, card) {
@@ -240,6 +274,9 @@ function actualizarEstadoPedido(pedidoId, nuevoEstado, card) {
                     nuevoEstado: nuevoEstado
                 }
             }));
+            
+            // Mostrar notificación de éxito
+            mostrarNotificacionCambioEstado(nuevoEstado);
             
         } else {
             console.error('❌ Error en servidor');
@@ -358,6 +395,10 @@ window.addEventListener('storage', function(e) {
                     
                     if (!ultimaInteraccion || (ahora - parseInt(ultimaInteraccion)) > 2000) {
                         console.log(`🔄 Aplicando cambio desde otra pestaña: ${data.estado}`);
+                        
+                        // Mostrar notificación de cambio desde otro dispositivo
+                        mostrarNotificacionCambioEstado(data.estado);
+                        
                         aplicarEstadoUI(pedidoCard, data.estado);
                         
                         const confir = pedidoCard.querySelector(".confirmacion-container");
@@ -397,72 +438,11 @@ style.textContent = `
     .feedback-flotante {
         pointer-events: none;
     }
+    
+    .notificacion-temp {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        pointer-events: none;
+        z-index: 9999;
+    }
 `;
 document.head.appendChild(style);
-
-setInterval(() => {
-    // Obtener todos los pedidos actuales
-    const pedidosActuales = document.querySelectorAll('.pedido-card');
-    
-    // Verificar en el servidor si alguno fue completado
-    const mesaId = obtenerMesaIdNumerico();
-    if (mesaId) {
-        fetch(`/api/pedidos/estados-mesa/${mesaId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Comparar con lo que tenemos en pantalla
-                    const pedidosEnServidor = data.pedidos.map(p => p.id);
-                    const pedidosEnPantalla = Array.from(pedidosActuales).map(card => 
-                        parseInt(card.dataset.pedidoId)
-                    );
-                    
-                    // Encontrar pedidos que están en pantalla pero NO en el servidor
-                    const pedidosEliminados = pedidosEnPantalla.filter(id => 
-                        !pedidosEnServidor.includes(id)
-                    );
-                    
-                    if (pedidosEliminados.length > 0) {
-                        console.log('🔥 Pedidos eliminados detectados:', pedidosEliminados);
-                        
-                        // Forzar recarga de la página
-                        mostrarMensajeRecarga();
-                        
-                        setTimeout(() => {
-                            location.reload();
-                        }, 1000);
-                    }
-                }
-            })
-            .catch(error => console.error('Error verificando pedidos:', error));
-    }
-}, 2000); // Verificar cada 2 segundos
-
-function mostrarMensajeRecarga() {
-    // Mostrar mensaje de recarga
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.9);
-        z-index: 999999;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        color: white;
-        font-size: 32px;
-        font-weight: bold;
-    `;
-    overlay.innerHTML = `
-        <div style="text-align: center;">
-            <div style="font-size: 80px; margin-bottom: 30px;">🔄</div>
-            <div>PEDIDO COMPLETADO EN OTRO DISPOSITIVO</div>
-            <div style="font-size: 24px; margin-top: 30px;">Recargando página...</div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-}
