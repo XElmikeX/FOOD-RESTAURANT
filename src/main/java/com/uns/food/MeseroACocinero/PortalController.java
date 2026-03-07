@@ -1,6 +1,7 @@
 package com.uns.food.MeseroACocinero;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -78,16 +79,10 @@ public class PortalController {
                 mesa.setPendiente(true);
                 mesasRepository.save(mesa);
                 
-                // 🔥 VERIFICAR SI LA MESA YA TIENE ALGÚN PEDIDO CON INTERACCIÓN
+                // Verificar si la mesa ya tiene interacción
                 List<Pedidos> pedidosExistentes = pedidosRepository.findByMesaId(mesa.getId());
-                boolean tieneInteraccion = false;
-                
-                for (Pedidos p : pedidosExistentes) {
-                    if (p.getCocineroInteractuo()) {
-                        tieneInteraccion = true;
-                        break;
-                    }
-                }
+                boolean tieneInteraccion = pedidosExistentes.stream()
+                    .anyMatch(p -> p.getCocineroInteractuo() != null && p.getCocineroInteractuo());
                 
                 System.out.println("📋 Mesa " + mesa.getId() + 
                                 (tieneInteraccion ? " YA tiene interacción previa" : 
@@ -111,7 +106,9 @@ public class PortalController {
                             pedido.setPrecioTotal(comida.getPrecio() * pedidoDTO.getCantidad());
                             pedido.setEstado("pendiente");
                             
-                            // 🔥 Si la mesa YA tiene interacción, el nuevo pedido también debe tenerla
+                            // 🔥 Establecer hora explícitamente con la zona horaria correcta
+                            pedido.setHora(LocalDateTime.now(ZoneId.of("America/Lima"))); // Cambia a tu zona
+                            
                             if (tieneInteraccion) {
                                 pedido.setCocineroInteractuo(true);
                                 System.out.println("✅ Nuevo pedido para mesa con interacción - marcado como interactuado");
@@ -127,14 +124,6 @@ public class PortalController {
                         System.err.println("Error al parsear comidaId: " + pedidoDTO.getComidaId());
                     }
                 }
-                
-                // 🔥 Si hay interacción, disparar evento para actualizar MOZO inmediatamente
-                if (tieneInteraccion) {
-                    System.out.println("🔄 Disparando evento de actualización para mesa " + mesa.getId());
-                    // No podemos disparar eventos desde el backend directamente,
-                    // pero el frontend ya está actualizando cada 3 segundos
-                }
-                
             } else {
                 System.err.println("Mesa no encontrada con ID: " + idMesa);
             }

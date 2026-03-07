@@ -1035,3 +1035,195 @@ body {
 .modal-body::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* ===== BOTÓN IMPRIMIR ===== */
+.btn-imprimir {
+    background: #f39c12;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.btn-imprimir:hover {
+    background: #e67e22;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+}
+
+/* ===== CONFIRMACIÓN DE FACTURACIÓN ===== */
+.confirmacion-factura {
+    margin-top: 15px;
+    padding: 15px;
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 10px;
+    text-align: center;
+    animation: slideDown 0.3s ease;
+}
+
+.confirmacion-factura p {
+    color: #856404;
+    font-weight: 600;
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.confirmacion-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-confirmar-si {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex: 1;
+}
+
+.btn-confirmar-si:hover {
+    background: #219a52;
+    transform: translateY(-2px);
+}
+
+.btn-confirmar-no {
+    background: #7f8c8d;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex: 1;
+}
+
+.btn-confirmar-no:hover {
+    background: #6c7a7d;
+    transform: translateY(-2px);
+}
+
+.confirmacion-factura.hidden {
+    display: none;
+}
+
+/* ===== BOTÓN IMPRIMIR ===== */
+.btn-imprimir {
+    background: #f39c12;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.btn-imprimir:hover {
+    background: #e67e22;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+}
+
+/* ===== CONFIRMACIÓN DE FACTURACIÓN ===== */
+.confirmacion-factura {
+    margin-top: 15px;
+    padding: 15px;
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 10px;
+    text-align: center;
+    animation: slideDown 0.3s ease;
+}
+
+.confirmacion-factura p {
+    color: #856404;
+    font-weight: 600;
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.confirmacion-factura p span {
+    font-weight: 800;
+    background: #856404;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.confirmacion-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-confirmar-si {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex: 1;
+}
+
+.btn-confirmar-si:hover {
+    background: #219a52;
+    transform: translateY(-2px);
+}
+
+.btn-confirmar-no {
+    background: #7f8c8d;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex: 1;
+}
+
+.btn-confirmar-no:hover {
+    background: #6c7a7d;
+    transform: translateY(-2px);
+}
+
+.confirmacion-factura.hidden {
+    display: none;
+}

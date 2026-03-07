@@ -1,6 +1,7 @@
 package com.uns.food.MeseroACocinero;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -10,6 +11,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 
 @Entity
 public class Pedidos {
@@ -48,7 +51,7 @@ public class Pedidos {
     // Constructores
     public Pedidos() {
         this.estado = "pendiente";
-        this.cocineroInteractuo = false; // Inicialmente el cocinero no ha interactuado
+        this.cocineroInteractuo = false;
     }
     
     public Pedidos(Foods comida, int cantidad, String nota, Mesas mesa) {
@@ -57,10 +60,24 @@ public class Pedidos {
         this.nota = nota;
         this.mesa = mesa;
         this.estado = "pendiente";
-        this.cocineroInteractuo = false; // Inicialmente el cocinero no ha interactuado
+        this.cocineroInteractuo = false;
         if (comida != null) {
             this.precioUnitario = comida.getPrecio();
             this.precioTotal = comida.getPrecio() * cantidad;
+        }
+    }
+    
+    @PrePersist
+    protected void onCreate() {
+        if (hora == null) {
+            hora = LocalDateTime.now(ZoneId.of("America/Lima")); // Cambia a tu zona
+        }
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        if (completado && horaCompletado == null) {
+            horaCompletado = LocalDateTime.now(ZoneId.of("America/Lima")); // Cambia a tu zona
         }
     }
 
@@ -111,6 +128,11 @@ public class Pedidos {
         return hora;
     }
     
+    // 🔥 AGREGAR ESTE MÉTODO SETTER PARA HORA
+    public void setHora(LocalDateTime hora) {
+        this.hora = hora;
+    }
+    
     public LocalDateTime getHoraCompletado() {
         return horaCompletado;
     }
@@ -124,8 +146,8 @@ public class Pedidos {
     }
     public void setCompletado(Boolean completado){
         this.completado = completado;
-        if (completado) {
-            this.horaCompletado = LocalDateTime.now();
+        if (completado && horaCompletado == null) {
+            this.horaCompletado = LocalDateTime.now(ZoneId.of("America/Lima")); // Cambia a tu zona
         }
     }
     
@@ -138,7 +160,6 @@ public class Pedidos {
         this.estado = estado;
     }
     
-    // 🔥 NUEVOS GETTER Y SETTER PARA COCINERO_INTERACTUO
     public Boolean getCocineroInteractuo() {
         return cocineroInteractuo;
     }
@@ -147,7 +168,6 @@ public class Pedidos {
         this.cocineroInteractuo = cocineroInteractuo;
     }
     
-    // Getters y setters para precios
     public Double getPrecioUnitario() {
         return precioUnitario;
     }

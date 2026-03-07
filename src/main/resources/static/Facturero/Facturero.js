@@ -79,85 +79,7 @@ function actualizarEstadisticasFacturas() {
     }
 }
 
-// Modificar eliminarPedidosMesa para actualizar después de facturar
-function eliminarPedidosMesa(mesaId) {
-    if (!confirm('¿Estás seguro de que deseas facturar esta mesa?\n\n⚠️ ESTO ELIMINARÁ TODOS LOS PEDIDOS (completados Y pendientes) de la mesa.')) {
-        return;
-    }
-    
-    const boton = event.currentTarget;
-    const textoOriginal = boton.innerHTML;
-    boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Facturando...';
-    boton.disabled = true;
-    
-    // Guardar referencia a la tarjeta antes de eliminarla
-    const mesaCard = document.getElementById('mesa-' + mesaId);
-    
-    fetch('/api/pedidos/eliminarYGuardar/' + mesaId, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // 🔥 Notificar a todas las páginas que esta mesa fue facturada
-            notificarMesaFacturada(mesaId);
-            
-            mostrarNotificacion('✅ Mesa facturada correctamente', 'success');
-            
-            // Eliminar la carta del DOM con animación
-            if (mesaCard) {
-                mesaCard.style.transition = 'all 0.3s ease';
-                mesaCard.style.transform = 'scale(0.8)';
-                mesaCard.style.opacity = '0';
-                
-                setTimeout(() => {
-                    mesaCard.remove();
-                    console.log(`🗑️ Mesa ${mesaId} eliminada del DOM`);
-                    
-                    // Verificar si no quedan mesas
-                    const mesasRestantes = document.querySelectorAll('.mesa-factura-card');
-                    if (mesasRestantes.length === 0) {
-                        const container = document.querySelector('.facturas-container');
-                        if (container) {
-                            container.innerHTML = `
-                                <div class="sin-facturas">
-                                    <i class="fas fa-check-circle"></i>
-                                    <h3>No hay pedidos listos para facturar</h3>
-                                    <p>Los pedidos aparecerán aquí cuando el cocinero los complete</p>
-                                </div>
-                            `;
-                        }
-                    }
-                }, 300);
-            }
-            
-            // Actualizar resumen diario y totales
-            cargarResumenDiario();
-            actualizarTotales();
-            
-            // Forzar una actualización completa después de facturar
-            setTimeout(() => {
-                actualizarFacturasContainer();
-            }, 500);
-            
-        } else {
-            mostrarNotificacion('Error: ' + data.message, 'error');
-            boton.innerHTML = textoOriginal;
-            boton.disabled = false;
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        mostrarNotificacion('Error al procesar la facturación', 'error');
-        boton.innerHTML = textoOriginal;
-        boton.disabled = false;
-    });
-}
-
-// 🔥 NUEVA FUNCIÓN: Notificar a todas las páginas que una mesa fue facturada
+// Función para notificar a todas las páginas que una mesa fue facturada
 function notificarMesaFacturada(mesaId) {
     console.log('📢 Notificando facturación de mesa', mesaId);
     
@@ -173,7 +95,7 @@ function notificarMesaFacturada(mesaId) {
         localStorage.removeItem(STORAGE_KEY);
     }, 1000);
     
-    // 2. Llamar al backend para notificar (esto podría usarse para WebSockets en el futuro)
+    // 2. Llamar al backend para notificar
     fetch('/api/pedidos/mesa-facturada/' + mesaId, {
         method: 'POST',
         headers: {
@@ -187,7 +109,7 @@ function notificarMesaFacturada(mesaId) {
     }));
 }
 
-// Pausar actualizaciones cuando la pestaña no está visible (opcional)
+// Pausar actualizaciones cuando la pestaña no está visible
 document.addEventListener('visibilitychange', function() {
     if (document.hidden) {
         console.log('⏸️ Pausando actualizaciones del facturero');
@@ -207,7 +129,6 @@ document.addEventListener('visibilitychange', function() {
 
 function verDetalleMesa(mesaId) {
     const mesaCard = document.getElementById('mesa-' + mesaId);
-
     const pedidosContainer = mesaCard.querySelector('.pedidos-list');
     pedidosContainer.classList.toggle('hidden');
             
@@ -217,27 +138,35 @@ function verDetalleMesa(mesaId) {
     } else {
         botonDetalle.innerHTML = '<i class="fas fa-eye-slash"></i> Detalle';
     }
-
 }
 
-// Cerrar modal al hacer clic fuera de él
-window.onclick = function(event) {
-    const modal = document.getElementById('facturaModal');
-    if (event.target === modal) {
-        cerrarModal();
-    }
-};
-
-/*FACTURA DE LA BOLETA*/
-
-function imprimirFactura() {
-    // Obtener el botón que fue clickeado
-    const boton = event.currentTarget;
-    console.log('Botón clickeado:', boton);
+// Función para mostrar confirmación de facturación
+function mostrarConfirmacionFactura(mesaId) {
+    // Ocultar otras confirmaciones abiertas
+    document.querySelectorAll('.confirmacion-factura').forEach(confirm => {
+        if (!confirm.classList.contains('hidden')) {
+            confirm.classList.add('hidden');
+        }
+    });
     
-    // Encontrar la tarjeta de mesa más cercana
-    const mesaCard = boton.closest('.mesa-factura-card');
-    console.log('Mesa card encontrada:', mesaCard);
+    // Mostrar confirmación para esta mesa
+    const confirmacion = document.getElementById('confirmacion-' + mesaId);
+    if (confirmacion) {
+        confirmacion.classList.remove('hidden');
+    }
+}
+
+// Función para ocultar confirmación de facturación
+function ocultarConfirmacionFactura(mesaId) {
+    const confirmacion = document.getElementById('confirmacion-' + mesaId);
+    if (confirmacion) {
+        confirmacion.classList.add('hidden');
+    }
+}
+
+// Función para imprimir factura (acepta mesaId)
+function imprimirFactura(mesaId) {
+    const mesaCard = document.getElementById('mesa-' + mesaId);
     
     if (!mesaCard) {
         console.error('No se encontró la tarjeta de mesa');
@@ -248,16 +177,12 @@ function imprimirFactura() {
     const mesaNumero = mesaCard.querySelector('.mesa-numero').textContent;
     const mesaTotal = mesaCard.querySelector('.total-valor').textContent;
     
-    console.log('Mesa número:', mesaNumero);
-    console.log('Mesa total:', mesaTotal);
-    
     // Obtener todos los pedidos de esta mesa
     const pedidosItems = mesaCard.querySelectorAll('.pedido-factura-item');
-    console.log('Pedidos encontrados:', pedidosItems.length);
     
     const pedidos = [];
     
-    pedidosItems.forEach((item, index) => {
+    pedidosItems.forEach(item => {
         const cantidad = item.querySelector('.pedido-cantidad').textContent.replace('x', '');
         const nombre = item.querySelector('.pedido-nombre').textContent;
         const precioTotal = item.querySelector('.pedido-precio').textContent;
@@ -265,8 +190,6 @@ function imprimirFactura() {
         // Buscar nota si existe
         const notaElement = item.querySelector('.pedido-nota span');
         const nota = notaElement ? notaElement.textContent : '';
-        
-        console.log(`Pedido ${index + 1}:`, { cantidad, nombre, precioTotal, nota });
         
         pedidos.push({
             cantidad: cantidad,
@@ -289,7 +212,7 @@ function crearYMostrarBoleta(mesaNumero, mesaTotal, pedidos) {
     // Número de factura aleatorio
     const facturaNumero = 'F' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     
-    // Crear el HTML de la boleta (tal como lo tienes)
+    // Crear el HTML de la boleta
     const boletaHTML = `
         <div class="boleta-impresion">
             <div class="boleta-header">
@@ -313,7 +236,7 @@ function crearYMostrarBoleta(mesaNumero, mesaTotal, pedidos) {
                 
                 ${pedidos.map(p => `
                     <div class="boleta-item">
-                        <span>${p.nombre}</span>
+                        <span>${p.nombre} ${p.nota ? ' (' + p.nota + ')' : ''}</span>
                         <span>x${p.cantidad}</span>
                         <span>${p.precioTotal}</span>
                     </div>
@@ -351,16 +274,17 @@ function crearYMostrarBoleta(mesaNumero, mesaTotal, pedidos) {
     }, 200);
 }
 
-/***************GUARDADO EN EL EXCEL*****************************/
+// Función para eliminar pedidos de una mesa (facturar)
 function eliminarPedidosMesa(mesaId) {
-    if (!confirm('¿Estás seguro de que deseas facturar estos pedidos?')) {
-        return;
-    }
+    // Ocultar confirmación primero
+    ocultarConfirmacionFactura(mesaId);
     
-    const boton = event.currentTarget;
-    const textoOriginal = boton.innerHTML;
-    boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Facturando...';
-    boton.disabled = true;
+    const boton = event?.currentTarget;
+    const textoOriginal = boton ? boton.innerHTML : '';
+    if (boton) {
+        boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Facturando...';
+        boton.disabled = true;
+    }
     
     fetch('/api/pedidos/eliminarYGuardar/' + mesaId, {
         method: 'POST',
@@ -371,56 +295,65 @@ function eliminarPedidosMesa(mesaId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Notificar a todas las páginas
+            notificarMesaFacturada(mesaId);
+            
             // Eliminar la mesa del localStorage
             eliminarMesaDeLocalStorage(mesaId);
             
-            mostrarNotificacion('✅ Pedidos facturados correctamente', 'success');
+            mostrarNotificacion('✅ Mesa facturada correctamente', 'success');
             
-            // Eliminar la carta del DOM inmediatamente
+            // Eliminar la carta del DOM con animación
             const mesaCard = document.getElementById('mesa-' + mesaId);
             if (mesaCard) {
-                mesaCard.remove();
-                console.log(`🗑️ Mesa ${mesaId} eliminada del DOM`);
+                mesaCard.style.transition = 'all 0.3s ease';
+                mesaCard.style.transform = 'scale(0.8)';
+                mesaCard.style.opacity = '0';
+                
+                setTimeout(() => {
+                    mesaCard.remove();
+                    
+                    // Verificar si no quedan mesas
+                    const mesasRestantes = document.querySelectorAll('.mesa-factura-card');
+                    if (mesasRestantes.length === 0) {
+                        const container = document.querySelector('.facturas-container');
+                        if (container) {
+                            container.innerHTML = `
+                                <div class="sin-facturas">
+                                    <i class="fas fa-check-circle"></i>
+                                    <h3>No hay pedidos listos para facturar</h3>
+                                    <p>Los pedidos aparecerán aquí cuando el cocinero los complete</p>
+                                </div>
+                            `;
+                        }
+                    }
+                }, 300);
             }
             
-            // Actualizar resumen diario
+            // Actualizar resumen diario y totales
             cargarResumenDiario();
-            
-            // Actualizar totales
             actualizarTotales();
             
-            // Verificar si no quedan mesas
-            const mesasRestantes = document.querySelectorAll('.mesa-factura-card');
-            if (mesasRestantes.length === 0) {
-                console.log('📭 No quedan mesas, mostrando mensaje');
-                const container = document.querySelector('.facturas-container');
-                if (container) {
-                    container.innerHTML = `
-                        <div class="sin-facturas">
-                            <i class="fas fa-check-circle"></i>
-                            <h3>No hay pedidos listos para facturar</h3>
-                            <p>Los pedidos aparecerán aquí cuando el cocinero los complete</p>
-                        </div>
-                    `;
-                }
-            }
-            
-            // Forzar una actualización después de facturar
+            // Forzar una actualización completa después de facturar
             setTimeout(() => {
-                actualizarTodo();
+                actualizarFacturasContainer();
             }, 500);
             
         } else {
             mostrarNotificacion('Error: ' + data.message, 'error');
-            boton.innerHTML = textoOriginal;
-            boton.disabled = false;
+            if (boton) {
+                boton.innerHTML = textoOriginal;
+                boton.disabled = false;
+            }
         }
     })
     .catch(error => {
         console.error('Error:', error);
         mostrarNotificacion('Error al procesar la facturación', 'error');
-        boton.innerHTML = textoOriginal;
-        boton.disabled = false;
+        if (boton) {
+            boton.innerHTML = textoOriginal;
+            boton.disabled = false;
+        }
     });
 }
 
@@ -440,11 +373,6 @@ function eliminarMesaDeLocalStorage(mesaId) {
         window.dispatchEvent(new StorageEvent('storage', {
             key: STORAGE_KEY,
             newValue: JSON.stringify(estadosGuardados)
-        }));
-        
-        // También podemos disparar un evento personalizado
-        window.dispatchEvent(new CustomEvent('mesaFacturada', {
-            detail: { mesaId: mesaId }
         }));
     }
 }
@@ -483,11 +411,9 @@ function mostrarMensajeSinDatos() {
     const container = document.getElementById('resumen-diario-container');
     if (!container) return;
     
-    // Limpiar el contenedor
     container.innerHTML = '';
     container.style.display = 'block';
     
-    // Crear estructura para mensaje sin datos
     const resumenDiv = document.createElement('div');
     resumenDiv.className = 'resumen-diario';
     
@@ -544,15 +470,12 @@ function mostrarResumenDiario(dias) {
         return;
     }
     
-    // Limpiar el contenedor
     container.innerHTML = '';
     container.style.display = 'block';
     
-    // Crear estructura
     const resumenDiv = document.createElement('div');
     resumenDiv.className = 'resumen-diario';
     
-    // Header
     const header = document.createElement('div');
     header.className = 'resumen-header';
     header.innerHTML = `
@@ -562,7 +485,6 @@ function mostrarResumenDiario(dias) {
         </button>
     `;
     
-    // Grid de tarjetas
     const grid = document.createElement('div');
     grid.className = 'resumen-grid';
     
@@ -631,8 +553,3 @@ function verDetalleDia(fecha) {
     const fechaFormateada = fecha.split('-').reverse().join('/');
     mostrarNotificacion(`📊 Ver detalles del ${fechaFormateada}`, 'info');
 }
-
-// Inicializar cuando la página carga
-document.addEventListener('DOMContentLoaded', function() {
-    cargarResumenDiario();
-});

@@ -92,11 +92,9 @@ function verificarNuevosCompletados() {
                     console.log('🔄 Programando recarga por NUEVOS completados');
                     recargaProgramada = true;
                     
-                    // Recargar después de 1.5 segundos
-                    setTimeout(() => {
-                        console.log('🔄 Recargando página...');
-                        window.location.reload();
-                    }, 2500);
+                    // Refresca para que no se vea el pedido completado en la lista
+                    window.location.reload();
+                    
                 } else {
                     console.log('⏭️ Sin NUEVOS completados');
                 }

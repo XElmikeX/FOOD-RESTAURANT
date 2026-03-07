@@ -85,13 +85,26 @@
                             <button class="btn-ver-detalle" th:onclick="'verDetalleMesa(' + ${mesa.id} + ')'">
                                 <i class="fas fa-eye"></i> Detalle
                             </button>
-                            <button class="btn-facturar" th:onclick="'imprimirFactura(' + ${mesa.id} + ')'">
-                                <i class="fas fa-file-invoice-dollar"></i> Imprimir
+                            <button class="btn-imprimir" th:onclick="'imprimirFactura(' + ${mesa.id} + ')'">
+                                <i class="fas fa-print"></i> Imprimir
                             </button>
-                            <button class="btn-eliminar" th:onclick="'eliminarPedidosMesa(' + ${mesa.id} + ')'">
-                                <i class="fas fa-check-circle"></i> Facturar
+                            <button class="btn-facturar" th:onclick="'mostrarConfirmacionFactura(' + ${mesa.id} + ')'">
+                                <i class="fas fa-file-invoice-dollar"></i> Facturar
                             </button>
                         </div>
+                        <!-- Botón de confirmación (oculto por defecto) -->
+                        <div class="confirmacion-factura hidden" th:id="'confirmacion-' + ${mesa.id}">
+                            <p>¿Confirmar facturación de la mesa?</p>
+                            <div class="confirmacion-buttons">
+                                <button class="btn-confirmar-si" th:onclick="'eliminarPedidosMesa(' + ${mesa.id} + ')'">
+                                    <i class="fas fa-check"></i> Sí, facturar
+                                </button>
+                                <button class="btn-confirmar-no" th:onclick="'ocultarConfirmacionFactura(' + ${mesa.id} + ')'">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     </div>
                 </div>
             </div>
